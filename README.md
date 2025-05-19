@@ -1,7 +1,11 @@
 # DomBusProtocol
 Python server that interfaces a DomBus network of modules with MQTT, Telnet, ... 
 
-The main purpose is to interface a building automation system made by one or more DomBus modules with [Home Assistant](https://homeassistant.io), [openHAB](https://www.openhab.org) and other systems supporting MQTT-AD protocol, the MQTT with AutoDiscovery function that permit to automatically create devices without the need of specific integrations.
+The main purpose is to **interface a building automation system made by one or more DomBus modules with [Home Assistant](https://homeassistant.io), [openHAB](https://www.openhab.org) and other systems supporting MQTT-AD protocol**, the MQTT with AutoDiscovery function that permits to automatically create devices without the need of specific integrations.
+
+Originally the idea was to just develop a **DomBus2MQTT software**, but now the idea is to get it open to other protocols too.
+
+The software is still experimental, in development stage.
 
 ![screenshot of Home Assisstant that automatically read and manage some DomBus modules](https://images.creasol.it/dombusprotocol.webp)
 
