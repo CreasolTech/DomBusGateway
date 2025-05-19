@@ -1,0 +1,8 @@
+DomBusProtocol
+Developed by Creasol - https://www.creasol.it
+
+2025-05-xx Rev 0.1
+First version with initial support to 
+* DomBus
+* MQTT
+* Telnet

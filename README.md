@@ -5,6 +5,12 @@ The main purpose is to **interface a building automation system made by one or m
 
 Originally the idea was to just develop a **DomBus2MQTT software**, but now the idea is to get it open to other protocols too.
 
+Once executed, using the command _python3 dombusprotocol.py &_ , it open one or more serial ports connected to DomBus modules (to get a reliable large network, it's possible to divide the DomBus network in trunks with 20-30 modules/each, or divide the building by floors/zones.
+
+If MQTT is enabled, it open a connection to the MQTT broker to exchange data (send device states and read command from the domotic controller).
+
+If TELNET port is enabled, it permits the user to have a command line interface to show the network and set configuration parameters for each module.
+
 The software is still experimental, in development stage.
 
 ![screenshot of Home Assisstant that automatically read and manage some DomBus modules](https://images.creasol.it/dombusprotocol.webp)
