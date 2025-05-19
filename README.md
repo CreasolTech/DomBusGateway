@@ -3,7 +3,7 @@ Python server that interfaces a DomBus network of modules with MQTT, Telnet, ...
 
 The main purpose is to interface a building automation system made by one or more DomBus modules with [Home Assistant](https://homeassistant.io), [openHAB](https://www.openhab.org) and other systems supporting MQTT-AD protocol, the MQTT with AutoDiscovery function that permit to automatically create devices without the need of specific integrations.
 
-
+![screenshot of Home Assisstant that automatically read and manage some DomBus modules](https://images.creasol.it/dombusprotocol.webp)
 
 # Files
 
@@ -16,7 +16,9 @@ The main purpose is to interface a building automation system made by one or mor
 
 
 # Credits
-Software is written by Creasol, https://www.creasol.it
+Software is written by Creasol, https://www.creasol.it with the valuable help of:
+
+*
 
 
 
