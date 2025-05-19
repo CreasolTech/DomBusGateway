@@ -1033,7 +1033,7 @@ class DomBusManager:
         self.loop = asyncio.get_event_loop()
         self.mqttConnected = False
         self.mqttPublishQueue = Queue() # Queue for MQTT messages
-        self.selectedBus = 0
+        self.selectedBus = 1    # default bus selected for command line interface (telnet)
 
         self.commands = {
             'help':     { 
@@ -1041,7 +1041,7 @@ class DomBusManager:
                 'help': 'Print this help. Type "help CMD" to get info about the specified cmd\r\n' },
             'showbus':  { 
                 'cmd': self.cmd_showbus,
-                'help': 'Show the list of available buses, or show data of the specified bus\r\nUse "setbus NUMBER" to select a bus (default: 1)\r\n' }, 
+                'help': 'Show the list of available buses\r\n' }, 
             'showmodule':   { 
                 'cmd': self.cmd_showmodule, 
                 'help': 'Show list of modules on the selected bus, or show data about the specified module\r\nFor example: "showmodule 0xffe3"\r\n' },
@@ -1191,25 +1191,47 @@ class DomBusManager:
         if len(cmd)>=1 and cmd[0] in self.commands:
             await self.commands[cmd[0]]['cmd'](cmd[1:], writer)
         else:
-            writer.write('\r\n> '.encode()) 
+            writer.write(b'Invalid command: please type help\r\n> ') 
+        writer.write(b'\r\n> ')
+        await writer.drain()
 
 
     async def cmd_help(self, args, writer):
         """Send back an help text"""
         if args and args[0] in self.commands:
-            writer.write(f'{self.commands[args[0]]['help']}\r\n> '.encode())
+            writer.write(f'{self.commands[args[0]]['help']}\r\n'.encode())
         else:
             writer.write(f'This interface permits to check and set configuration for a DomBus network of home automation modules.\r\nAvailable commands:\r\n'.encode())
             for cmd in self.commands:
                 hs=re.sub('\r\n', '\r\n           ', self.commands[cmd]['help'])
                 writer.write(f'{cmd:10} {hs}\r\n'.encode())
-            writer.write('\r\n> '.encode())
 
-    async def cmd_showbus(self, args, write):
+    async def cmd_showbus(self, args, writer):
         """Show list of buses, or parameter of the selected bus"""
-        print()
+        bus = 0
+        if args:
+            try:
+                bus = int(args[0], 16)
+            except ValueError:
+                writer.write(b"Invalid typed bus\r\n")
+                bus = 0
 
-    async def cmd_showmodule(self, args, write):
+        if bus != 0 and bus in buses:
+            # Show modules attached to the selected bus
+            writer.write(f'Modules attached to bus {bus}: Bus, Address, Type, Version, LastRX\r\n'.encode())
+            for m in Modules:
+                busAddr = m >> 16
+                if busAddr == bus:
+                    elapsedTime = int(time.time() - Modules[m][DB.LASTRX])
+                    writer.write(f'- Bus {bus:02x} Module {(m & 0xffff):04x} {Modules[m][DB.LASTTYPE:10]} {Modules[m][DB.LASTFW]:6} {elapsedTime}s\r\n'.encode()) 
+        else:
+            # Show list of buses
+            writer.write(f'Available buses:\r\n'.encode())
+            for b in buses:
+                writer.write(f'- {b:02x}: {buses[b]['serialPort']:20} {"CONNECTED" if 'protocol' in buses[b] else "DISCONNECTED"}\r\n'.encode())
+
+
+    async def cmd_showmodule(self, args, writer):
         """Show list of modules for the selected bus, or parameters of the selected module"""
         print()
 
