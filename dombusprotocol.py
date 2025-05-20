@@ -18,6 +18,7 @@ import struct
 import json
 import time
 import re
+import bisect
 from datetime import datetime
 from queue import Queue
 
@@ -1049,14 +1050,7 @@ class DomBusManager:
         }
 
     async def add_bus(self, busID, port, baudrate=115200):
-        """
-        Add a new serial bus.
-
-        Args:
-            busID (str): A unique identifier for the bus.
-            port (str): Serial port for communication (e.g., "/dev/ttyUSB0").
-            baudrate (int): Baud rate for the serial connection.
-        """
+        """Add a new serial bus."""
         if busID in buses and 'protocol' in buses[busID]:
             raise ValueError(f"Bus ID {busID} already exists.")
 
@@ -1211,16 +1205,18 @@ class DomBusManager:
     def showModuleList(self, writer):
         """Show modules attached to self.selectedBus"""
         writer.write(f'Modules attached to bus {self.selectedBus}: use "showbus BUS" to select another bus\r\n     Bus     Address Type      Version LastRX\r\n'.encode())
+        mlist = []
         for m in Modules:
-            busAddr = m >> 16
-            if busAddr == self.selectedBus:
-                elapsedTime = int(time.time() - Modules[m][DB.LASTRX])
-                writer.write(f'- Bus {self.selectedBus:02x} Module {(m & 0xffff):04x} {Modules[m][DB.LASTTYPE]:10} {Modules[m][DB.LASTFW]:6} {elapsedTime}s\r\n'.encode())
+            if (m >> 16) == self.selectedBus:   # same bus!
+                bisect.insort(mlist, m)         # add module to a sorted list mlist
+        for m in mlist:
+            elapsedTime = int(time.time() - Modules[m][DB.LASTRX])
+            writer.write(f'- Bus {self.selectedBus:02x} Module {(m & 0xffff):04x} {Modules[m][DB.LASTTYPE]:10} {Modules[m][DB.LASTFW]:6} {elapsedTime}s\r\n'.encode())
 
     def showDeviceList(self, writer):
         writer.write(f"Devices (ports) for the selected module {self.selectedModule:04x} on bus {self.selectedBus:02x}:\r\n".encode())
-        devIDbase = self.selectedBus << 24 + self.selectedModule << 8
-        for p in range(1,256):
+        devIDbase = (self.selectedBus << 24) + (self.selectedModule << 8)
+        for p in range(1, 256):
             devID = devIDbase + p
             if devID in Devices:
                 writer.write(f'- {Devices[devID].portName:14} {Devices[devID].portConf}\r\n'.encode())
@@ -1255,7 +1251,8 @@ class DomBusManager:
             except ValueError:
                 module = 0
                 writer.write(b"Invalid module address\r\n")
-        if module != 0 and module in Modules:
+        frameAddr = module + (self.selectedBus << 16)
+        if module != 0 and frameAddr in Modules:
             # List all devices with the same address of module
             self.selectedModule = module
             self.showDeviceList(writer)
@@ -1267,14 +1264,8 @@ if __name__ == "__main__":
     async def main():
         global manager
         manager = DomBusManager()
-        await manager.add_bus(busID=1, port="/dev/ttyUSB0", baudrate=115200)
-        # await manager.add_bus(busID=2, port="/dev/ttyUSB1", baudrate=115200)
-
-        # Example: Send a command to address 1, port "A1", to set the output to 1 on bus1
-        # manager.send_command(busID="bus1", address=1, port="A1", command="SET", value=1)
-
-        # Example: Send a command to address 2, port "B2", to get the state on bus2
-        # manager.send_command(busID="bus2", address=2, port="B2", command="GET")
+        for bus in buses:
+            await manager.add_bus(busID=bus, port=buses[bus]['serialPort'], baudrate=115200)
 
         if mqtt['enabled'] != 0:
             # await manager.add_mqtt()
