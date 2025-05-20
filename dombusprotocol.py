@@ -1106,7 +1106,7 @@ class DomBusManager:
 
     async def _mqttSubscribe(self):
         """Subscribe to all topics asynchronously."""
-        topics = [(mqtt['topicConfig'], 0), (mqtt['topic'], 1)]
+        topics = f'{mqtt["topic"]}/#'
         await mqtt['client'].subscribe(topics, options={"no_local": True})  # Subscribe to all topics
         log(DB.LOG_DEBUG, f"[MQTT] Subscribed to topics {topics}")
 
