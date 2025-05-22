@@ -18,6 +18,8 @@ import dombusprotocol_const as DB # constants
 #debugLevel = (DB.LOG_DEBUG | DB.LOG_DUMPRX | DB.LOG_DUMPTX | DB.LOG_DUMPDCMD | DB.LOG_MQTTRX | DB.LOG_MQTTTX)
 debugLevel = (DB.LOG_DEBUG | DB.LOG_DUMPDCMD | DB.LOG_MQTTRX | DB.LOG_MQTTTX | DB.LOG_DUMPTX | DB.LOG_TELNET)
 
+datadir = 'data'    # directory where Devices configuration and other data will be saved    
+
 # Dombus buses (1 or more serial RS485 buses attached to DomBus modules
 buses = {
     1: { 'serialPort': '/dev/ttyUSB1', },

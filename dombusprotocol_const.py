@@ -177,31 +177,13 @@ PORTOPTS={
         "EV3PSELECT":0x00fe,      # EVSE 3PSELECT
         }
 
-PORTTYPENAME={  #Used to set the device TypeName
-        "DISABLED":"Switch",
-        "OUT_DIGITAL":"Switch",
-        "OUT_RELAY_LP":"Switch",
-        "OUT_LEDSTATUS":"Switch", # output used as led status
-        "OUT_DIMMER":"Dimmer",
-        "OUT_BUZZER":"Selector Switch",
-        "OUT_FLASH":"Selector Switch",
-        "IN_AC":"Switch",
-        "IN_DIGITAL":"Switch",
-        "IN_ANALOG":"Voltage",
-        "IN_TWINBUTTON":"Selector Switch",
-        "IN_COUNTER":"Counter Incremental",
-        "HUMIDITY":"Humidity",
-        "TEMPERATURE":"Temperature",
-        "TEMP+HUM":"Temp+Hum",
-        "DISTANCE":"Distance",
-#        "OUT_BLIND":"Venetian Blinds EU", #not available in domoticz yet. hardware/plugins/PythonObjects.cpp must be updated!
-        "OUT_BLIND":"Switch",
-        "OUT_ANALOG":"Dimmer",
-        "CUSTOM":"Switch",
-        "SETPOINT":"Setpoint",
-        }
-
-
+PORTOPTS_NAME={
+    0x0000: 'NORMAL',
+    0x0001: 'INVERTED',
+    0x0002: 'PULLUP',
+    0x0004: 'PULLDOWN',
+    0x00fe: 'EV3PSELECT',
+    }
 
 DCMD_IN_EVENTS={
         "NONE":     0,
@@ -255,6 +237,18 @@ LOG_MQTTRX  =   0x100   # Log MQTT RX commands
 LOG_MQTTTX  =   0x200   # Log MQTT TX commands
 LOG_TELNET  =   0x10000 # Log TELNET messages
 
+LOGNAME = {
+    LOG_NONE:       '           ',
+    LOG_ERR:        '[ERROR]    ',
+    LOG_WARN:       '[WARNING]  ',
+    LOG_INFO:       '[INFO]     ',
+    LOG_DEBUG:      '[DEBUG]    ',
+    LOG_DUMPRX:     '[DUMPRX]   ',
+    LOG_DUMPTX:     '[DUMPTX]   ',
+    LOG_DUMPDCMD:   '[DUMPDCMD] ',
+    LOG_MQTTRX:     '[MQTTRX]   ',
+    LOG_MQTTTX:     '[MQTTTX]   ',
+    LOG_TELNET:     '[TELNET]   ',
+}
 
-LOG_NAMES=["NONE","ERROR","WARN","INFO","DEBUG","DUMP"]
 
