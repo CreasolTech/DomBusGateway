@@ -23,6 +23,37 @@ The software is still experimental, in development stage.
 
 * _dombusprotocol_conf.py_: configuration file that should be edited by the user
 
+* _data/_: directory, created if not existing, where list of DomBus modules and configuration is saved and restored
+
+
+
+# Installation
+
+* git clone git@github.com:CreasolTech/DomBusProtocol.git
+
+* cd DomBusProtocol
+
+* edit file _dombusprotocol_conf.py_ to define the serial ports, logging, MQTT parameters
+
+* python3 dombusprotocol.py
+
+The software is still in developing, so do not expect to have full features available and software stability!
+
+
+
+# Telnet command line interface
+
+It's possible to connect dombusprotocol by telnet in this way:
+
+_telnet localhost 8023_
+
+Telnet CLI permits to:
+
+* _showbus BUS_ : list modules attached to the specified bus (it's possible to connect 20-30 modules to the same bus, but for safety reasons it can be good to differentiate bus by floors or by area to manage very large buildings). For example _showbus 2_ to list modules attached to bus #2
+
+* _showmodule ADDR_ : list ports associated to the specified module. For example _showmodule 3701_ to list ports and configuration for the module with address 3701.
+
+* _setport PORT CONFIGURATION_ : change the configuration of the specified port. For example _setport 1 IN_COUNTER,DIVIDER=2000_ to configure port1 in counter mode, type energy meter with pulsed output, 2000 pulses / kWh.
 
 
 # Credits
