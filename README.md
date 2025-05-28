@@ -8,13 +8,14 @@ It's a custom protocol developed by [Creasol](https://www.creasol.it/domotics) t
 
 It's a **multi-master protocol**, where each **DomBus module can start communicating to the controller for example when an input changes** (for example a counter, alarm sensor, pushbutton), with a low latency (typically less than 100ms).
 
-Also, it supports the so-called *DCMD*, commands sent between modules triggered by a input change or when a condition becomes true. They can be used to realize simple automations that work even when the main controller (Domoticz, Home Assistant, ...) is frozen or OFF, similarly to [KNX](https://www.knx.org/).
+Also, it supports the so-called *DCMD*, commands sent between modules triggered by a input change or when a condition becomes true. **DCMD can be used to realize simple automations that work even when the main controller (Domoticz, Home Assistant, ...) is frozen or OFF, similarly to [KNX](https://www.knx.org/)**.
 
 
 ### What are DomBus modules?
 
 They are **very low power consumption devices** with several **versatile I/Os and sensors**, performing general or specific functions, that can be used in building automations. 
-They can be found equipped with 2 protocols: **DomBus** custom protocol, or **Modbus** standard protocol.
+They can be factory programmed with **DomBus** custom protocol, or **Modbus** standard protocol.
+
 A list of DomBus modules can be found below.
 
 
@@ -25,10 +26,18 @@ DomBus modules equipped with DomBus firmware can be used with:
 * [Home Assistant](https://www.home-assistant.io/) and [OpenHAB](https://www.openhab.org/), using the **DomBusGateway** software that acts as a **DomBus to MQTT-AD gateway**. Also, other systems supporting MQTT can be used in this way, for example [NodeRED](https://nodered.org/) and many others.
 
 DomBus modules equipped with Modbus firmware can be used with:
-* [NodeRED](https://nodered.org/) and many other systems, by using the Modbus protocol. 
+* [Home Assistant](https://www.home-assistant.io/), [OpenHAB](https://www.openhab.org/), [NodeRED](https://nodered.org/), [ioBroker](https://www.iobroker.net/) and many other systems supporting the Modbus protocol. 
 
 
-### How does DomBusGateway work?
+### For HomeAssistant and OpenHAB, is it better DomBus + DomBusGateway, or Modbus?
+
+DomBus + DomBusGateway implementation is simpler, because all devices/entities are created. It's a must in case that DCMD, pushbuttons, alarm sensors and counters are needed.
+
+Modbus can be used for relay modules, EVSE module (to make your own electric vehicle charging wallbox), Dual axis solar tracker. It's not recommended in case that pushbuttons, alarm sensors and counters have to be used.
+
+
+
+## How does DomBusGateway work?
 
 Once executed, using the command _python3 dombusprotocol.py &_ , it opens one or more serial ports connected to DomBus modules (to get a reliable large network, it's possible to divide the DomBus network in trunks with 20-30 modules/each, or divide the building by floors/zones). It's also possible to use WiFi/LAN RS485 modules that provide a virtual serial interface, to get a wireless connection between the main controller where DomBusProtocol gateway runs, and RS485 port physically connected to the DomBus modules. 
 
