@@ -1,5 +1,5 @@
-# DomBusProtocol configuration (may be modified by the user)
-import dombusprotocol_const as DB # constants
+# DomBusGateway configuration (may be modified by the user)
+import dombusgateway_const as DB # constants
 
 # Debugging level (it's possible to combine more items): 
 # DB.LOG_NONE   => Nothing

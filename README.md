@@ -39,11 +39,11 @@ Modbus can be used for relay modules, EVSE module (to make your own electric veh
 
 ## How does DomBusGateway work?
 
-Once executed, using the command _python3 dombusprotocol.py &_ , it opens one or more serial ports connected to DomBus modules (to get a reliable large network, it's possible to divide the DomBus network in trunks with 20-30 modules/each, or divide the building by floors/zones). It's also possible to use WiFi/LAN RS485 modules that provide a virtual serial interface, to get a wireless connection between the main controller where DomBusProtocol gateway runs, and RS485 port physically connected to the DomBus modules. 
+Once executed, using the command _python3 dombusgateway.py &_ , it opens one or more serial ports connected to DomBus modules (to get a reliable large network, it's possible to divide the DomBus network in trunks with 20-30 modules/each, or divide the building by floors/zones). It's also possible to use WiFi/LAN RS485 modules that provide a virtual serial interface, to get a wireless connection between the main controller where DomBusateway runs, and RS485 port physically connected to the DomBus modules. 
 
 If MQTT is enabled, it opens a connection to the MQTT broker to exchange data (sending device states and reading command from the domotic controller).
 
-If TELNET port is enabled, the user can connect DomBusProtocol to show the network of modules and set configuration parameters for each module. DomBus modules usually have configurable I/Os, for example a I/O should be configured as digital input, analog input, counter, energy counter, and so on, and this configuration can be done by Telnet.
+If TELNET port is enabled, the user can connect DomBusGateway to show the network of modules and set configuration parameters for each module. DomBus modules usually have configurable I/Os, for example a I/O should be configured as digital input, analog input, counter, energy counter, and so on, and this configuration can be done by Telnet.
 
 **The software is still experimental, in development stage**
 
@@ -51,11 +51,11 @@ If TELNET port is enabled, the user can connect DomBusProtocol to show the netwo
 
 # Files
 
-* _dombusprotocol.py_: main server that must be runned in background, calling _python3 dombusprotocol.py &_
+* _dombusgateway.py_: main server that must be runned in background, calling _python3 dombusgateway.py &_
 
-* _dombusprotocol_const.py_: script with several constants used by _dombusprotocol.py_
+* _dombusgateway_const.py_: script with several constants used by _dombusgateway.py_
 
-* _dombusprotocol_conf.py_: configuration file that should be edited by the user
+* _dombusgateway_conf.py_: configuration file that should be edited by the user
 
 * _data/_: directory, created if not existing, where list of DomBus modules and configuration is saved and restored
 
@@ -63,13 +63,13 @@ If TELNET port is enabled, the user can connect DomBusProtocol to show the netwo
 
 # Installation
 
-* git clone git@github.com:CreasolTech/DomBusProtocol.git
+* git clone git@github.com:CreasolTech/DomBusGateway.git
 
-* cd DomBusProtocol
+* cd DomBusGateway
 
-* edit file _dombusprotocol_conf.py_ to define the serial ports, logging, MQTT parameters
+* edit file _dombusgateway_conf.py_ to define the serial ports, logging, MQTT parameters
 
-* python3 dombusprotocol.py
+* python3 dombusgateway.py
 
 The software is still in developing, so do not expect to have full features available and software stability!
 
@@ -77,7 +77,7 @@ The software is still in developing, so do not expect to have full features avai
 
 # Telnet command line interface
 
-It's possible to connect dombusprotocol by telnet in this way:
+It's possible to connect dombusgateway by telnet in this way:
 
 _telnet localhost 8023_
 

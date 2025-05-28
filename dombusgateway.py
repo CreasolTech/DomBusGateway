@@ -1,13 +1,12 @@
 #!/usr/bin/python3
-# DomBusProtocol module to manage DomBus home automation modules 
+# DomBusGateway module to manage DomBus home automation modules 
 # (relays, inputs, outputs, sensors, EV charging, ...) - https://www.creasol.it/domotics
 # Written by Creasol - www.creasol.it
 #
-# Based on example/dombusprotocol3.py
 
 VERSION = "0.1"
 
-from dombusprotocol_conf import *
+from dombusgateway_conf import *
 import asyncio
 import serial_asyncio
 if mqtt['enabled'] != 0:
@@ -213,8 +212,8 @@ class DomBusDevice():
                     if counter != 0:
                         if counter < 0 : counter += 65536   # value is a 16bit unsigned variable
                         if counterValue != self.counterValue:
-                            # dombusprotocol not in sync with DomBus module
-                            # most probably dombusprotocol has been restarted
+                            # dombusgateway not in sync with DomBus module
+                            # most probably dombusgateway has been restarted
                             counter = 0 # prevent to compute power with a very high value
                             
 
@@ -281,9 +280,9 @@ class DomBusDevice():
                     
 
                     o = {}  # originator
-                    o['name'] = 'DomBusProtocol'
+                    o['name'] = 'DomBusGateway'
                     o['sw'] = VERSION
-                    o['url'] = 'https://creasol.it/DomBusProtocol'
+                    o['url'] = 'https://creasol.it/DomBusGateway'
                     payload['o'] = o
 
                     if self.frameAddr in Modules:
@@ -1411,7 +1410,7 @@ class DomBusManager:
         clientIP = writer.get_extra_info('peername')[0]
         log(DB.LOG_INFO, f"New telnet connection from {clientIP}")
         telnet['clients'][writer] = dict(reader = reader, writer = writer, ip = clientIP)
-        writer.write(b'Welcome to DomBusProtocol telnet interface\r\nType help to get a list of commands\r\nMore info at https://www.creasol.it/DomBusProtocol\r\n> ')
+        writer.write(b'Welcome to DomBusGateway telnet interface\r\nType help to get a list of commands\r\nMore info at https://www.creasol.it/DomBusGateway\r\n> ')
         await writer.drain()
 
         try:
