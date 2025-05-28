@@ -1,17 +1,17 @@
 # DomBusProtocol
-Python server that interfaces a DomBus network of modules with MQTT, Telnet, ... 
+Python gateway that interfaces one or more DomBus networks of modules with MQTT AutoDiscovery 
 
-The main purpose is to **interface a building automation system made by one or more DomBus modules with [Home Assistant](https://homeassistant.io), [openHAB](https://www.openhab.org) and other systems supporting MQTT-AD protocol**, the MQTT with AutoDiscovery function that permits to automatically create devices without the need of specific integrations.
+The main purpose is to **interface a building automation system made by one or more DomBus modules with [Home Assistant](https://homeassistant.io), [openHAB](https://www.openhab.org) and other systems supporting MQTT-AD protocol**, the MQTT with AutoDiscovery function that permits to automatically create and manage devices (entities) without the need of specific integrations.
 
 Originally the idea was to just develop a **DomBus2MQTT software**, but now the idea is to get it open to other protocols too.
 
-Once executed, using the command _python3 dombusprotocol.py &_ , it open one or more serial ports connected to DomBus modules (to get a reliable large network, it's possible to divide the DomBus network in trunks with 20-30 modules/each, or divide the building by floors/zones.
+Once executed, using the command _python3 dombusprotocol.py &_ , it opens one or more serial ports connected to DomBus modules (to get a reliable large network, it's possible to divide the DomBus network in trunks with 20-30 modules/each, or divide the building by floors/zones). It's also possible to use WiFi/LAN RS485 modules that provide a virtual serial interface, to get a wireless connection between the main controller where DomBusProtocol gateway runs, and RS485 port physically connected to the DomBus modules. 
 
-If MQTT is enabled, it open a connection to the MQTT broker to exchange data (send device states and read command from the domotic controller).
+If MQTT is enabled, it opens a connection to the MQTT broker to exchange data (sending device states and reading command from the domotic controller).
 
-If TELNET port is enabled, it permits the user to have a command line interface to show the network and set configuration parameters for each module.
+If TELNET port is enabled, the user can connect DomBusProtocol to show the network of modules and set configuration parameters for each module. DomBus modules usually have configurable I/Os, for example a I/O should be configured as digital input, analog input, counter, energy counter, and so on, and this configuration can be done by Telnet.
 
-The software is still experimental, in development stage.
+**The software is still experimental, in development stage**
 
 ![screenshot of Home Assisstant that automatically read and manage some DomBus modules](https://images.creasol.it/dombusprotocol.webp)
 
