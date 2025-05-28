@@ -69,6 +69,7 @@ def devIDName2devID(devIDname: str) -> int:
     else:
         return None
 
+######################################## DomBusDevice class ###############################################    
 class DomBusDevice():
     """Device class"""
     def __init__(self, devID : int, portType: int, portOpt: int, portName: str, portConf: str, options: dict, haOptions: dict, dcmd: dict = {}, status: dict = {}):
@@ -82,14 +83,13 @@ class DomBusDevice():
         self.devIDname2 = ""    # ID name of a second device associated to this, for example a Watt device associated to this kWh device
         self.portType = portType
         self.portOpt = portOpt
-        self.portName = portName  # "p01 RL1"
+        self.portName = portName  # "P01 RL1"
         self.portConf = portConf  # "ID=01ff31_01 OUT_RELAY_LP"
         self.dcmd = dcmd
 
         self.ha = haOptions.copy()
         if 'p' not in self.ha:
             self.ha['p'] = 'switch'  # default entity platform
-
 
         if options:
             self.options = options.copy()
@@ -110,6 +110,9 @@ class DomBusDevice():
         self.lastEnergy = 0     # last published energy
         self.lastValueUpdate = 0    # last time that value has been published
         self.lastEnergyUpdate = 0   # last time that energy has been published
+        self.lastPortType = 0
+
+        self.setTopics(self.ha['p'], "")  # Set self.topic and self.topic2
 
         if status:
             self.devIDname2 = status['devIDname2']
@@ -117,12 +120,30 @@ class DomBusDevice():
             self.counterValue = status['counterValue']
             self.counterTime = status['counterTime']
             self.energy = status['energy']
+            self.topic2 = status['topic2']
+            self.topic2Config = status['topic2Config']
+
+        self.lastTopicConfig = self.topicConfig
+        self.lastTopic2Config = self.topic2Config
+
 
         log(DB.LOG_INFO, f"New device, Bus={self.busID:x}, HWaddr={self.devAddr:04x}, Port={self.port:x}, Type={self.portType:x}{' (' + DB.PORTTYPES_NAME[self.portType] + ') ' if self.portType in DB.PORTTYPES_NAME else ''} Name={self.portName}")
             
+    def setTopics(self, platform1, platform2):
+        """ Set self.topic, self,topicConfig, self.topic2, self.topic2COnfig """
+        self.topic = f"{mqtt['topic']}/{platform1}/{self.devIDname}"
+        self.topicConfig = f"{mqtt['topicConfig']}/{platform1}/{self.devIDname}/config"
+        if platform2 != "":
+            self.topic2 = f"{mqtt['topic']}/{platform2}/{self.devID2name}"
+            self.topic2Config = f"{mqtt['topicConfig']}/{platform2}/{self.devID2name}/config"
+        else:
+            if not hasattr(self, 'topic2'):
+                self.topic2 = ""
+                self.topic2Config = ""
 
     def to_dict(self) -> dict[str, Any]:
-        status = dict(devIDname2 = self.devIDname2, value = self.value, counterValue = self.counterValue, counterTime = self.counterTime, energy = self.energy)
+        """Transform DomBusDevice classes into a dictionary, to be saved in a json file"""
+        status = dict(devIDname2 = self.devIDname2, value = self.value, counterValue = self.counterValue, counterTime = self.counterTime, energy = self.energy, topic2 = self.topic2, topic2Config = self.topic2Config)
         return { 
             'devID': self.devID, 'portType': self.portType, 'portOpt': self.portOpt, 'portName': self.portName, 'portConf': self.portConf, 'options': self.options, 
             'ha': self.ha, 'dcmd': self.dcmd, 'status': status
@@ -130,6 +151,7 @@ class DomBusDevice():
     
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> 'DomBusDevice':
+        """Transform json data in the file to a dictionary of DomBusDevice devices"""
         return cls(data['devID'], data['portType'], data['portOpt'], data['portName'], data['portConf'], data['options'], data['ha'], data['dcmd'], data['status'])
 
 
@@ -167,9 +189,10 @@ class DomBusDevice():
             
         else:
             if 'device_class' in self.ha and self.ha['device_class'] in ('door','window'):
-                self.valueHA = 'CLOSED' if self.value == 0 else 'OPEN'
+                self.valueHA = 'closed' if self.value == 0 or self.value == 2 else 'open'
+                log(DB.LOG_DEBUG, f'binary sensor type door: value={self.value}, valueHA={self.valueHA}')
             else:
-                self.valueHA = 'OFF' if self.value == 0 else 'ON'
+                self.valueHA = 'Off' if self.value == 0 else 'On'
             
     def updateFromBus(self, what, value:int = None, counterValue:int = None):
         """ Data received from bus: update device and send command to MQTT, ..."""
@@ -204,8 +227,8 @@ class DomBusDevice():
                             else:
                                 self.value = 0  # Watt
                         self.counterTime = ms
-
-
+                elif self.portType == DB.PORTTYPE_SENSOR_ALARM:
+                    self.energy = counterValue
             
             self.value2valueHA()    # set the valueHA according to value
             if mqtt['enabled'] != 0:
@@ -213,16 +236,21 @@ class DomBusDevice():
                     # send data by MQTT only if it changed, or every publishInterval
                     if self.valueHA != self.lastValueHA or (self.lastUpdate - self.lastValueUpdate) > mqtt['publishInterval']:
                         self.lastValueHA = self.valueHA; self.lastValueUpdate = self.lastUpdate
-                        topic = f"{mqtt['topic']}/{self.ha['p']}/{self.devIDname}/state"    # Send state
                         payload = self.valueHA    # message = ON
-                        manager.mqttPublish(topic, payload)
-                        if self.devIDname2 != "" and (self.energy != self.lastEnergy or (self.lastUpdate - self.lastEnergyUpdate) > mqtt['publishInterval']):
-                            # a second entity is associated to this
-                            topic = f"{mqtt['topic']}/{self.ha['p']}/{self.devIDname2}/state"    # Send state
-                            if self.ha['device_class'] == 'power':
-                                self.lastEnergy = self.energy; self.lastEnergyUpdate = self.lastUpdate
-                                payload = int(self.energy * 1000) / 1000    # message = ON
-                                manager.mqttPublish(topic, payload)
+                        manager.mqttPublish(self.topic + '/state', payload)
+
+                    # if devIDname2 exists => transmit energy value (good also for PORTTYPE_SENSOR_ALARM
+                    if self.devIDname2 != "" and (self.energy != self.lastEnergy or (self.lastUpdate - self.lastEnergyUpdate) > mqtt['publishInterval']):
+                        # a second entity is associated to this
+                        self.lastEnergy = self.energy; self.lastEnergyUpdate = self.lastUpdate
+                        if self.portType == DB.PORTTYPE_SENSOR_ALARM:
+                            self.energy = int(self.energy)
+                            if self.energy > 4: 
+                                self.energy = 0
+                            payload = DB.SENSOR_ALARM_NAME[ self.energy ]
+                        else:
+                            payload = int(self.energy * 1000) / 1000    # energy, with Wh resolution
+                        manager.mqttPublish(self.topic2 + '/state', payload)
                             
 
         if what & DB.UPDATE_ACK:
@@ -230,18 +258,26 @@ class DomBusDevice():
             if mqtt['enabled'] != 0:
                 # send state update to the controller 
                 if self.portType != DB.PORTTYPE_SENSOR_TEMP_HUM and self.portType != DB.PORTTYPE_OUT_LEDSTATUS:    # do not add TEMP+HUM device
-                    topic = f"{mqtt['topic']}/{self.ha['p']}/{self.devIDname}/state"    # Send state
                     payload = self.valueHA    # message = ON
-                    manager.mqttPublish(topic, payload)
+                    manager.mqttPublish(self.topic + '/state', payload)
                         
 
         if what & DB.UPDATE_CONFIG:
             if mqtt['enabled'] != 0:
                 # Create device by MQTT_AD
                 if self.portType != DB.PORTTYPE_SENSOR_TEMP_HUM and self.portType != DB.PORTTYPE_OUT_LEDSTATUS:    # do not add TEMP+HUM device
-                    topic = f"{mqtt['topicConfig']}/{self.ha['p']}/{self.devIDname}/config"    # Send config
-                    payload = dict(name = f"{self.portName}", unique_id = 'dombus_' + self.devIDname, command_topic = f"{mqtt['topic']}/{self.ha['p']}/{self.devIDname}/set", \
-                            state_topic = f"{mqtt['topic']}/{self.ha['p']}/{self.devIDname}/state", schema = "json")
+                    if self.portType != self.lastPortType and self.lastTopicConfig != "":
+                        # portType changed => remove previous entity by sending config topic with empty payload
+                        log(DB.LOG_DEBUG,f'Removing old entity, topic={self.lastTopicConfig}, payload=""')
+                        manager.mqttPublish(self.lastTopicConfig, "")
+                        if self.lastTopic2Config != "":
+                            # portType changed => remove previous entity by sending config topic with empty payload
+                            log(DB.LOG_DEBUG,f'Removing old associated entity, topic={self.lastTopic2Config}, payload=""')
+                            manager.mqttPublish(self.lastTopic2Config, "")
+                        
+                    self.setTopics(self.ha['p'], "")    # update current topic
+                    payload = dict(name = f"{self.portName}", unique_id = 'dombus_' + self.devIDname, command_topic = f"{self.topic}/set", \
+                            state_topic = f"{self.topic}/state", schema = "json")
                     
 
                     o = {}  # originator
@@ -252,7 +288,7 @@ class DomBusDevice():
 
                     if self.frameAddr in Modules:
                         dev = {} # device
-                        dev['identifiers'] = [ self.devIDname[:-4] ]
+                        dev['identifiers'] = [ self.frameAddr ]
                         dev['name'] = f"DomBus {self.devAddr:04x}"
                         if self.busID > 1:
                             dev['name'] += f" on bus {self.busID:x}"
@@ -271,23 +307,49 @@ class DomBusDevice():
                             payload['unit_of_measurement'] = 'm'
                         else:
                             payload['unit_of_measurement'] = 'mm'
-                    manager.mqttPublish(topic, payload)
+                    manager.mqttPublish(self.topicConfig, payload)
 
                     if 'device_class' in self.ha and self.ha['device_class'] == 'power':
                         # set a second entity with energy value
-                        self.devIDname2 = f"{self.frameAddr:06x}_{(self.port + 0x80):02x}"
-                        topic = f"{mqtt['topicConfig']}/{self.ha['p']}/{self.devIDname2}/config"
-                        payload['unique_id'] = 'dombus_' + self.devIDname2
-                        payload['command_topic'] = f"{mqtt['topic']}/{self.ha['p']}/{self.devIDname2}/set"
-                        payload['state_topic'] = f"{mqtt['topic']}/{self.ha['p']}/{self.devIDname2}/state"
+                        payloadi['p'] = 'sensor' # platform
+                        self._initDevice2Config(payload) # init payload, topic2 and topic2 config, send empty payload to remove previous entity
                         payload['device_class'] = 'energy'
                         payload['state_class'] = 'total'
                         payload['unit_of_measurement'] = "kWh"
-                        manager.mqttPublish(topic, payload)
+                        manager.mqttPublish(self.topic2Config, payload)
+                    elif self.portType == DB.PORTTYPE_SENSOR_ALARM:
+                        # set a second entity showing all sensor statuses: Closed, Open, Masked, Tampered, Shorted
+                        payload['p'] = 'select' # platform
+                        self._initDevice2Config(payload) # init payload, topic2 and topic2 config, send empty payload to remove previous entity
+                        payload['options'] = ['Closed', 'Open', 'Masked', 'Tampered', 'Shorted']
+                        manager.mqttPublish(self.topic2Config, payload)
+                        self.lastTopic2Config = self.topic2Config
+                    else:
+                        # No associated device
+                        self.devIDname2 = ""
+                        self.topic2 = ""
+                        self.topic2Config = ""
+                        self.lastTopic2Config = ""
+
 
         if what & DB.UPDATE_DCMD:
             #TODO: propagate DCMD command
             log(DB.LOG_DEBUG, "*** Send MQTT topic to propagate DCMD ***")
+
+    def _initDevice2Config(self, payload):
+        """Called from updateFromBus(DB.UPDATE_CONFIG): init payload, topic2 and topic2 config, send empty payload to remove previous entity"""
+        self.devIDname2 = f"{self.frameAddr:06x}_{(self.port + 0x80):02x}"
+        self.topic2 = f"{mqtt['topic']}/{payload['p']}/{self.devIDname2}"
+        self.topic2Config = f"{mqtt['topicConfig']}/{payload['p']}/{self.devIDname2}/config"
+        self.lastTopic2Config = self.topic2Config
+        for item in ('device_class', 'state_class', 'unit_of_measurement', 'payload_on', 'payload_off', 'options', 'min', 'max', 'step', 'icon' ):
+            if item in payload:
+                del payload[item]
+        payload['unique_id'] = 'dombus_' + self.devIDname2
+        payload['name']=f'{self.portName}_E'
+        payload['command_topic'] = f"{self.topic2}/set"
+        payload['state_topic'] = f"{self.topic2}/state"
+
 
     def updateToBus(self, what:int, valueStr:str = None):
         """ Data received from MQTT: update device and send command to bus"""
@@ -369,22 +431,34 @@ class DomBusDevice():
     def updateDeviceConfig(self, newHwAddr: int, newModbusAddr: int, portType: int, portOpt: int, cal: int, dcmd: dict, portConf: str, options: dict, haOptions: dict):
         """Port configuration change requested by the user (via telnet, for example)"""
         diff = 0
+        
+        self.lastTopicConfig = self.topicConfig     # save previous config topic, used to remove the old entity
+        self.lastTopic2Config = self.topic2Config   # save previous config topic, used to remove the old associated entity
+
         if self.portType != portType:
             self.portType = portType
+            if portType in DB.PORTTYPES_HA:
+                self.ha = DB.PORTTYPES_HA[portType].copy()  # get platform and device_class from const file
             diff += 1
         if self.portOpt != portOpt:
             self.portOpt = portOpt
             diff += 2
         if dcmd and self.dcmd != dcmd:
-            self.dcmd = dcmd
+            self.dcmd = dcmd.copy()
             diff += 4
         if portConf:
             self.portConf = portConf
         if options:
-            self.options = options
+            self.options = options.copy()
+            if 'A' not in self.options:
+                self.options['A'] = 1
+            if 'B' not in self.options:
+                self.options['B'] = 0
+
         if haOptions:
-            self.ha = haOptions
+            self.ha.update(haOptions)
             diff += 16
+
         if diff & 7:
             # update DomBus module configuration
             log(DB.LOG_INFO, f'Update configuration for DomBus module {self.devIDname}:\r\n  {portConf}')
@@ -469,12 +543,13 @@ class DomBusDevice():
                     del Devices[self.devID]
 
 
-
         if diff & 19:
             # update HA configuration
             log(DB.LOG_INFO, f'Update configuration to domotic controller for module {self.devIDname}:\r\n  {portConf}\r\n  {haOptions}')
             self.updateFromBus(DB.UPDATE_CONFIG)
 
+
+######################################## DomBusProtocol class ###############################################    
 class DomBusProtocol(asyncio.Protocol):
     def __init__(self, busID, on_data_received_callback):
         self.busID = busID
@@ -544,6 +619,17 @@ class DomBusProtocol(asyncio.Protocol):
                         msg += "A-"
                     if cmd == DB.CMD_CONFIG:
                         msg += 'CFG '
+                        if cmdAck and port == 0xfe:
+                            # Module version and type
+                            msg += f'{port:02x} '
+                            for j in range (2, cmdLen+1):
+                                if frame[i+j] == 0:
+                                    break
+                                else:
+                                    msg += chr(frame[i+j])
+                            msg += ';'
+                            i += cmdLen + 1
+                            continue
                         if cmdAck and (port & 0xf0) == 0xf0:
                             # whole port configuration => cmdLen without any sense
                             msg += f"{port:02x} {arg:x}"
@@ -889,6 +975,9 @@ class DomBusProtocol(asyncio.Protocol):
                                     counterValue = None   # used to pass a second parameter to updateFromBus() within a counter value or energy
                                     if cmdLen == 2: # cmd, port, arg1
                                         value = arg # 8bit value that have to be set
+                                        if d.portType == DB.PORTTYPE_SENSOR_ALARM:  # state: 0=closed, 1=open, 2=masked, 3=tampered, 4=shorted
+                                            counterValue = value    # 0 = closed, 1 = open, 2 = masked, 3 = tampered, 4 = shorted
+
                                     elif cmdLen == 3 or cmdLen == 4:
                                         value = arg*256 + arg2    # 16 bit value
                                         """ TODO: NTC 3950
@@ -977,8 +1066,8 @@ class DomBusProtocol(asyncio.Protocol):
                                                 value=value-65536
                                             counterValue = value2 / 100     # value2 was in 10Wh unit => convert to kWh
                                     # update device and send ack
-                                    d.updateFromBus(DB.UPDATE_VALUE, value, counterValue) # Energy in Wh -> kWh
                                     self.txQueueAdd(self.frameAddr, cmd, 2, DB.CMD_ACK, port, [ arg ], 1, 1)
+                                    d.updateFromBus(DB.UPDATE_VALUE, value, counterValue) # Energy in Wh -> kWh
                             elif cmd == DB.CMD_DCMD and arg<DB.DCMD_OUT_CMDS['MAX']: # DCMD command addressed to me? deactivate/activate/toggle a scene or group
                                 log(DB.LOG_INFO,f"Request to activate or deactivate scene/group with idx={port}")
                                 switchcmd=''    # TODO: manage scenes by DCMD
@@ -1195,16 +1284,19 @@ class DomBusManager:
         self.commands = {
             'help':     { 
                 'cmd': self.cmd_help,     
-                'help': 'Print this help. Type "help CMD" to get info about the specified cmd\r\n' },
+                'help': 'Print this help. Type "help CMD" to get info about the specified cmd' },
+            'refresh':   {
+                'cmd': self.cmd_refresh,
+                'help': 'Send list of all devices to the domotic controller',   },
             'showbus':  { 
                 'cmd': self.cmd_showbus,
                 'help': 'Show the list of available buses\r\nSpecify a bus to show modules attached to that bus, e.g. "showbus 1"' }, 
             'showmodule':   { 
                 'cmd': self.cmd_showmodule, 
-                'help': 'Show data about the specified module: e.g. "showmodule ffe3"\r\n' },
+                'help': 'Show data about the specified module: e.g. "showmodule ffe3"' },
             'setport':  {
                 'cmd': self.cmd_setport,
-                'help': 'Configure the specified port: "showbus" and "showmodule" commands have to be invoked to select the module to be configured. Examples:\r\n"setport 01 IN_ANALOG,A=0.00042" to set port 1 as analog input, specifying the A coefficient\r\n"setport 02 IN_DIGITAL,INVERTED" to set port 2 as digital input with inverted logic (On when port 2 is pulled to GND, Off when left open)' },
+                'help': 'Configure the specified port: "showbus" and "showmodule" commands have to be invoked\r\nto select the module to be configured. Examples:\r\n"setport 01 IN_ANALOG,A=0.00042" to set port 1 as analog input, specifying the A coefficient\r\n"setport 02 IN_DIGITAL,INVERTED" to set port 2 as digital input with inverted logic\r\n(On when port 2 is pulled to GND, Off when left open)' },
         }
 
     async def add_bus(self, busID, port, baudrate=115200):
@@ -1290,8 +1382,8 @@ class DomBusManager:
         while self.mqttConnected:
             topic, message = await self.loop.run_in_executor(None, self.mqttPublishQueue.get)
             # Publish the message
+            log(DB.LOG_MQTTTX, f"Publish to {topic}: {message}")
             await mqtt['client'].publish(topic, message, qos=1)
-            log(DB.LOG_MQTTTX, f"Published to {topic}: {message}")
             self.mqttPublishQueue.task_done()
 
     def mqttPublish(self, topic: str, payload: any):
@@ -1369,7 +1461,21 @@ class DomBusManager:
             writer.write(f'This interface permits to check and set configuration for a DomBus network of home automation modules.\r\nAvailable commands:\r\n'.encode())
             for cmd in self.commands:
                 hs=re.sub('\r\n', '\r\n           ', self.commands[cmd]['help'])
-                writer.write(f'{cmd:10} {hs}\r\n'.encode())
+                writer.write(f'{cmd:10} {hs}\r\n\r\n'.encode())
+
+    async def cmd_refresh(self, args, writer):
+        """Send whole list of devices to the domotic controller"""
+        dlist = []
+        for dev in Devices: # sort by devID
+            bisect.insort(dlist, dev)
+        for dev in dlist:
+            d = Devices[dev]
+            if (dev >> 8) in Modules:
+                writer.write(f'Sending configuration refresh for device {d.devIDname}...\r\n'.encode())
+                d.updateFromBus(DB.UPDATE_CONFIG)
+            else:
+                writer.write(f'Skip sending configuration for device {d.devIDname}: module {(dev >> 8):06x} not alive or not received yet!\r\n'.encode())
+        del dlist            
 
     async def cmd_showbus(self, args, writer):
         """Show list of buses, or parameter of the selected bus"""
@@ -1442,6 +1548,7 @@ class DomBusManager:
         for m in mlist:
             elapsedTime = int(time.time() - Modules[m][DB.LASTRX])
             writer.write(f'- Bus {self.selectedBus:02x} Module {(m & 0xffff):04x} {Modules[m][DB.LASTTYPE]:10} {Modules[m][DB.LASTFW]:6} {elapsedTime}s\r\n'.encode())
+        del mlist
 
     def showDeviceList(self, writer):
         writer.write(f"Devices (ports) for the selected module {self.selectedModule:04x} on bus {self.selectedBus:02x}:\r\n".encode())
@@ -1529,8 +1636,8 @@ class DomBusManager:
             elif cmdeq[0] in ('PAR1', 'PAR2', 'PAR3', 'PAR4'):
                 par = getInt(cmdeq[1])
                 if par and par < 65536:
-                    options[cmdeq[0]] = cmdeq[1]
-                    portConfName += f",{cmdeq[0]}={cmdeq[1]}"
+                    options[cmdeq[0]] = par
+                    portConfName += f",{cmdeq[0]}={par}"
             elif cmdeq[0] == "EVMAXCURRENT" and d.ha['p'] == 'select':    
                 par = getInt(cmdeq[1])
                 if par == None or par<6 or par>36:

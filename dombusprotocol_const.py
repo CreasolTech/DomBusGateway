@@ -159,7 +159,7 @@ PORTTYPES_HA = {
     0x00004000: {'p': 'sensor', 'device_class': 'temperature', 'unit_of_measurement': '°C'},
     0x00008000: {'p': 'sensor', 'device_class': 'humidity', 'unit_of_measurement': '%'},
     0x0000C000: {'p': 'sensor', 'device_class': 'temperature'},
-    0x00020000: {'p': 'binary_sensor', 'device_class': 'door'},
+    0x00020000: {'p': 'binary_sensor', 'device_class': 'door', 'payload_on': 'open', 'payload_off': 'closed'},
     0x01000000: {'p': 'cover'},
     0x02000000: {'p': 'number', 'device_class': 'voltage', 'min': 0, 'max':10, 'step':0.1, 'unit_of_measurement': 'V'},
     0x80000000: {},
@@ -184,6 +184,9 @@ PORTOPTS_NAME={
     0x0004: 'PULLDOWN',
     0x00fe: 'EV3PSELECT',
     }
+
+SENSOR_ALARM_NAME = [ 'Closed', 'Open', 'Masked', 'Tampered', 'Shorted' ]   # state name for triple-biased alarm sensor
+    
 
 DCMD_IN_EVENTS={
         "NONE":     0,
