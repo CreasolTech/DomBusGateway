@@ -1,9 +1,34 @@
-# DomBusProtocol
-Python gateway that interfaces one or more DomBus networks of modules with MQTT AutoDiscovery 
+# DomBusGateway
+Python gateway that **interfaces one or more DomBus networks of home automation modules with MQTT AutoDiscovery**
 
-The main purpose is to **interface a building automation system made by one or more DomBus modules with [Home Assistant](https://homeassistant.io), [openHAB](https://www.openhab.org) and other systems supporting MQTT-AD protocol**, the MQTT with AutoDiscovery function that permits to automatically create and manage devices (entities) without the need of specific integrations.
 
-Originally the idea was to just develop a **DomBus2MQTT software**, but now the idea is to get it open to other protocols too.
+### What is DomBus?
+
+It's a custom protocol developed by [Creasol](https://www.creasol.it/domotics) to communicate with home automation modules using a **RS485 serial bus, made by a standard alarm cable within 4 wires**, 2 for data at 115200bps, 2 for 12-24V to supply all devices.
+
+It's a **multi-master protocol**, where each **DomBus module can start communicating to the controller for example when an input changes** (for example a counter, alarm sensor, pushbutton), with a low latency (typically less than 100ms).
+
+Also, it supports the so-called *DCMD*, commands sent between modules triggered by a input change or when a condition becomes true. They can be used to realize simple automations that work even when the main controller (Domoticz, Home Assistant, ...) is frozen or OFF, similarly to [KNX](https://www.knx.org/).
+
+
+### What are DomBus modules?
+
+They are **very low power consumption devices** with several **versatile I/Os and sensors**, performing general or specific functions, that can be used in building automations. 
+They can be found equipped with 2 protocols: **DomBus** custom protocol, or **Modbus** standard protocol.
+A list of DomBus modules can be found below.
+
+
+### For what home automation systems can DomBus modules be used?
+
+DomBus modules equipped with DomBus firmware can be used with:
+* [Domoticz](https://wiki.domoticz.com/Creasol_Dombus), using the **CreasolDomBus plugin**
+* [Home Assistant](https://www.home-assistant.io/) and [OpenHAB](https://www.openhab.org/), using the **DomBusGateway** software that acts as a **DomBus to MQTT-AD gateway**. Also, other systems supporting MQTT can be used in this way, for example [NodeRED](https://nodered.org/) and many others.
+
+DomBus modules equipped with Modbus firmware can be used with:
+* [NodeRED](https://nodered.org/) and many other systems, by using the Modbus protocol. 
+
+
+### How does DomBusGateway work?
 
 Once executed, using the command _python3 dombusprotocol.py &_ , it opens one or more serial ports connected to DomBus modules (to get a reliable large network, it's possible to divide the DomBus network in trunks with 20-30 modules/each, or divide the building by floors/zones). It's also possible to use WiFi/LAN RS485 modules that provide a virtual serial interface, to get a wireless connection between the main controller where DomBusProtocol gateway runs, and RS485 port physically connected to the DomBus modules. 
 
