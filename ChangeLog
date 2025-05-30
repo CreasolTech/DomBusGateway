@@ -1,8 +1,9 @@
-DomBusProtocol
-Developed by Creasol - https://www.creasol.it
+DomBusGateway
+
+Developed by Creasol - https://www.creasol.it/domotics
 
 2025-05-xx Rev 0.1
 First version with initial support to 
 * DomBus
-* MQTT
+* MQTT-AD
 * Telnet
