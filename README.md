@@ -55,7 +55,9 @@ If TELNET port is enabled, the user can connect DomBusGateway to show the networ
 
 * _dombusgateway_const.py_: script with several constants used by _dombusgateway.py_
 
-* _dombusgateway_conf.py_: configuration file that should be edited by the user
+* _dombusgateway_conf.py_: configuration file 
+
+* _dombusgateway_conf_local.py_: configuration file that will never be overwritten from the GitHub repository: this is the right place to store your local configuration
 
 * _data/_: directory, created if not existing, where list of DomBus modules and configuration is saved and restored
 
@@ -67,7 +69,7 @@ If TELNET port is enabled, the user can connect DomBusGateway to show the networ
 
 * cd DomBusGateway
 
-* edit file _dombusgateway_conf.py_ to define the serial ports, logging, MQTT parameters
+* edit file _dombusgateway_conf_local.py_ to define the serial ports, logging, MQTT parameters
 
 * python3 dombusgateway.py
 

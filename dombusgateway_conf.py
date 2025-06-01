@@ -43,3 +43,5 @@ telnet = {
     'port':         8023,               # port to listen
     'address':      '127.0.0.1',        # interface to bind to. '127.0.0.1' => localhost, '192.168.x.y' => LAN, '0.0.0.0' => all interfaces
 }
+
+from dombusgateway_conf_local import *
