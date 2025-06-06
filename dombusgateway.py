@@ -58,37 +58,32 @@ def getHex(s):
         return None
 
 def devIDName2devID(devIDname: str) -> int:
-    """Convert devIDname in the format 013601_0a to the integer value 0x0136010a used as index for Devices"""
-    pattern = r'^([0-9a-fA-F]{6})_([0-9a-fA-F]{2})$'
-    match = re.fullmatch(pattern, devIDname)
-    if match:
-        frameAddr, port = match.groups()
-        hex_str = frameAddr + port  # Combine to "BBHHHHPP"
-        return int(hex_str, 16)
-    else:
+    """Convert devIDname in the format 013601_000a to the integer value 0x013601000a used as index for Devices"""
+    try:
+        devID = int(devIDname.replace('_', ''), 16)
+    except Exception as e:
+        log(DB.LOG_WARN, f"Error converting devIDname={devIDname} to devID (integer): {e}")
         return None
+    else:
+        return devID
 
 ######################################## DomBusDevice class ###############################################    
 class DomBusDevice():
     """Device class"""
-    def __init__(self, devID : int, portType: int, portOpt: int, portName: str, portConf: str, options: dict, haOptions: dict, dcmd: dict = {}, status: dict = {}):
-        self.devID = int(devID) # devID=0xBBAAAAPP
-        self.busID = devID >> 24
-        self.frameAddr = self.devID >> 8     #0xBBAAAA for example 0x01ff38
+    def __init__(self, devID : int, portType: int, portOpt: int, portName: str, options: dict, haOptions: dict, dcmd: dict = {}, status: dict = {}):
+        self.devID = int(devID) # devID=0xBBAAAAPPPP
+        self.busID = devID >> 32
+        self.frameAddr = self.devID >> 16     #0xBBAAAA for example 0x01ff38
         self.devAddr = self.frameAddr & 0xffff
-        self.port = devID & 0xff
+        self.port = devID & 0xffff
         # self.devIDname = f"b{self.busID:02x}_h{self.devAddr:04x}_p{self.port:02x}"
-        self.devIDname = f"{self.frameAddr:06x}_{self.port:02x}"
+        self.devIDname = f"{self.frameAddr:06x}_{self.port:04x}"
         self.devIDname2 = ""    # ID name of a second device associated to this, for example a Watt device associated to this kWh device
         self.portType = portType
         self.portOpt = portOpt
         self.portName = portName  # "P01 RL1"
-        self.portConf = portConf  # "ID=01ff31_01 OUT_RELAY_LP"
         self.dcmd = dcmd
-
-        self.ha = haOptions.copy()
-        if 'p' not in self.ha:
-            self.ha['p'] = 'switch'  # default entity platform
+        self.ha = {}
 
         if options:
             self.options = options.copy()
@@ -99,9 +94,17 @@ class DomBusDevice():
         if 'B' not in self.options:
             self.options['B'] = 0
 
+        if portType in DB.PORTTYPES_HA:
+            self.ha = DB.PORTTYPES_HA[portType].copy()  # get platform and device_class from const file
+        if 'p' not in self.ha:
+            self.ha['p'] = 'switch'  # default entity platform
+        if haOptions:
+            self.ha.update(haOptions)
+
+        self.setPortConf() # write configuration string
         self.lastUpdate = int(time.time())
-        self.value = 0      # TODO: retrieve value from file?
-        self.valueHA = 'OFF'
+        self.value = 0          # later, retrieve value from file
+        self.valueHA = ''
         self.counterValue = 0   # counter value
         self.counterTime = 0    # last time a pulse was received (in ms)
         self.energy = 0         # energy in kWh
@@ -116,6 +119,7 @@ class DomBusDevice():
         if status:
             self.devIDname2 = status['devIDname2']
             self.value = status['value']
+            self.valueHA = status['valueHA']
             self.counterValue = status['counterValue']
             self.counterTime = status['counterTime']
             self.energy = status['energy']
@@ -126,8 +130,20 @@ class DomBusDevice():
         self.lastTopic2Config = self.topic2Config
 
 
-        log(DB.LOG_INFO, f"New device, Bus={self.busID:x}, HWaddr={self.devAddr:04x}, Port={self.port:x}, Type={self.portType:x}{' (' + DB.PORTTYPES_NAME[self.portType] + ') ' if self.portType in DB.PORTTYPES_NAME else ''} Name={self.portName}")
-            
+        log(DB.LOG_INFO, f"New device, Bus={self.busID:x}, HWaddr={self.devAddr:04x}, Port={self.port:x}, Type={self.portType:x}{' (' + DB.PORTTYPES_NAME[self.portType] + ')' if self.portType in DB.PORTTYPES_NAME else ''}, Name={self.portName}, platform={self.ha['p']}")
+        
+    def setPortConf(self):
+        """set the self.portConf string specifying device configuration"""
+        self.portConf = f'{self.portName}'
+        if self.portType in DB.PORTTYPES_NAME:
+            self.portConf += f',{DB.PORTTYPES_NAME[self.portType]}'
+        if self.portOpt in DB.PORTOPTS_NAME:
+            self.portConf += f',{DB.PORTOPTS_NAME[self.portOpt]}'
+
+        log(DB.LOG_DEBUG, f"setPortConf: options={self.options}")
+        for opt in self.options:
+            self.portConf += f',{opt}={self.options[opt]}'
+
     def setTopics(self, platform1, platform2):
         """ Set self.topic, self,topicConfig, self.topic2, self.topic2COnfig """
         self.topic = f"{mqtt['topic']}/{platform1}/{self.devIDname}"
@@ -142,16 +158,16 @@ class DomBusDevice():
 
     def to_dict(self) -> dict[str, Any]:
         """Transform DomBusDevice classes into a dictionary, to be saved in a json file"""
-        status = dict(devIDname2 = self.devIDname2, value = self.value, counterValue = self.counterValue, counterTime = self.counterTime, energy = self.energy, topic2 = self.topic2, topic2Config = self.topic2Config)
+        status = dict(devIDname2 = self.devIDname2, value = self.value, valueHA = self.valueHA, counterValue = self.counterValue, counterTime = self.counterTime, energy = self.energy, topic2 = self.topic2, topic2Config = self.topic2Config)
         return { 
-            'devID': self.devID, 'portType': self.portType, 'portOpt': self.portOpt, 'portName': self.portName, 'portConf': self.portConf, 'options': self.options, 
+            'devID': self.devID, 'portType': self.portType, 'portOpt': self.portOpt, 'portName': self.portName, 'options': self.options, 
             'ha': self.ha, 'dcmd': self.dcmd, 'status': status
         }
     
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> 'DomBusDevice':
         """Transform json data in the file to a dictionary of DomBusDevice devices"""
-        return cls(data['devID'], data['portType'], data['portOpt'], data['portName'], data['portConf'], data['options'], data['ha'], data['dcmd'], data['status'])
+        return cls(data['devID'], data['portType'], data['portOpt'], data['portName'], data['options'], data['ha'], data['dcmd'], data['status'])
 
 
     def value2valueHA(self):
@@ -175,7 +191,7 @@ class DomBusDevice():
         elif self.portType == DB.PORTTYPE_SENSOR_TEMP_HUM:
             return  # ignore this kind of sensor (used by Domoticz only)
         elif self.portType == DB.PORTTYPE_IN_COUNTER:
-            if self.ha['device_class'] == 'power':
+            if 'device_class' in self.ha and self.ha['device_class'] == 'power':
                 self.valueHA = self.value   # watt
                 if self.valueHA >= 32768:
                     self.valueHA -= 65536   # negative value                                  
@@ -224,7 +240,7 @@ class DomBusDevice():
 
                         self.counterValue = value
                         ms = int(time.time()*1000)
-                        if self.ha['device_class'] == 'power':
+                        if 'device_class' in self.ha and self.ha['device_class'] == 'power':
                             if counter>0 and ms > self.counterTime:
                                 self.value = int((counter * 3600000000/ (ms - self.counterTime)) * self.options['A'])  # watt
                                 self.energy += counter * self.options['A']  # energy in kWh
@@ -342,7 +358,7 @@ class DomBusDevice():
 
     def _initDevice2Config(self, payload):
         """Called from updateFromBus(DB.UPDATE_CONFIG): init payload, topic2 and topic2 config, send empty payload to remove previous entity"""
-        self.devIDname2 = f"{self.frameAddr:06x}_{(self.port + 0x80):02x}"
+        self.devIDname2 = f"{self.frameAddr:06x}_{(self.port + 0x80):04x}"
         self.topic2 = f"{mqtt['topic']}/{payload['p']}/{self.devIDname2}"
         self.topic2Config = f"{mqtt['topicConfig']}/{payload['p']}/{self.devIDname2}/config"
         self.lastTopic2Config = self.topic2Config
@@ -410,7 +426,6 @@ class DomBusDevice():
                         else:
                             # valueHA is a float or int
                             self.valueHA = value
-                            log(DB.LOG_DEBUG, f"value={value} is float -> valueHA={self.valueHA}")
                             if self.portType == DB.PORTTYPE_OUT_ANALOG:
                                 # 0-10.0V step 0.1V
                                 value = int(value*10)
@@ -429,45 +444,41 @@ class DomBusDevice():
                 else:
                     log(DB.LOG_ERR, f"Invalid value type from MQTT: value={valueHA}, type={type(valueHA)}")  
                     error = True
-                if self.ha['device_class'] == 'power':
+                if 'device_class' in self.ha and self.ha['device_class'] == 'power':
                     if value < 0:
                         value += 65536  # Negative power => convert to int(16)
                 if error == False:
-                    log(DB.LOG_DEBUG, f"TX to DomBus module {self.frameAddr}, on port {self.port}, value={value}")
-                    buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_SET, 2, 0, self.port, [value], DB.TX_RETRY, 1)
+                    log(DB.LOG_DEBUG, f"TX to DomBus module {self.frameAddr:06x}, on port {self.port:02x}, value={value}")
+                    if self.port < 0x80:
+                        buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_SET, 2, 0, self.port, [value], DB.TX_RETRY, 1)
+                    elif self.port >= 0x100 and self.port < 0x1000:
+                        # send DB.CMD_CONFIG, port (port&0x7f), DB.SUBCMD_SETx (port>>8), 16bit value
+                        buses[self.busID]['protocol'].txQueueAddConfig16(self.port & 0x7f, self.port >> 8, value)
 
 
         log(DB.LOG_DEBUG, "Call send()...")
         buses[self.busID]['protocol'].send()    # Transmit, if needed
 
 
-    def updateDeviceConfig(self, newHwAddr: int, newModbusAddr: int, portType: int, portOpt: int, cal: int, dcmd: dict, portConf: str, options: dict, haOptions: dict):
-        """Port configuration change requested by the user (via telnet, for example)"""
+    def updateDeviceConfig(self, portType: int, portOpt: int, cal: int, dcmd: dict, options: dict, haOptions: dict, value: int = None):
+        """Port configuration change requested by the user (via telnet, for example) or by a new device read from DomBus network"""
         diff = 0
         
         self.lastTopicConfig = self.topicConfig     # save previous config topic, used to remove the old entity
         self.lastTopic2Config = self.topic2Config   # save previous config topic, used to remove the old associated entity
+        proto = buses[self.busID]['protocol']
 
         if self.portType != portType:
-            self.portType = portType
-            if portType in DB.PORTTYPES_HA:
-                self.ha = DB.PORTTYPES_HA[portType].copy()  # get platform and device_class from const file
             diff += 1
         if self.portOpt != portOpt:
-            self.portOpt = portOpt
             diff += 2
         if dcmd and self.dcmd != dcmd:
             self.dcmd = dcmd.copy()
             diff += 4
-        if portConf:
-            self.portConf = portConf
+        
         if options:
             self.options = options.copy()
-            if 'A' not in self.options:
-                self.options['A'] = 1
-            if 'B' not in self.options:
-                self.options['B'] = 0
-
+        
         if haOptions:
             self.ha.update(haOptions)
             diff += 16
@@ -475,92 +486,142 @@ class DomBusDevice():
         if diff & 7:
             # update DomBus module configuration
             log(DB.LOG_INFO, f'Update configuration for DomBus module {self.devIDname}:\r\n  {portConf}')
-            buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 7, 0, self.port, [((self.portType>>24)&0xff), ((self.portType>>16)&0xff), ((self.portType>>8)&0xff), (self.portType&0xff), (self.portOpt >> 8), (self.portOpt&0xff)], DB.TX_RETRY,0)
-            buses[self.busID]['protocol'].send()    # Transmit
+            proto.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 7, 0, self.port, [((self.portType>>24)&0xff), ((self.portType>>16)&0xff), ((self.portType>>8)&0xff), (self.portType&0xff), (self.portOpt >> 8), (self.portOpt&0xff)], DB.TX_RETRY,0)
+            proto.send()    # Transmit
 
-        if newModbusAddr and newModbusAddr>0 and newModbusAddr<248:
-            Log(DB.LOG_INFO, f"Send command to change modbus device address to {newModbusAddr}")
-            buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, self.port, [DB.SUBCMD_SET, (newModbusAddr>>8), (newModbusAddr&0xff)], DB.TX_RETRY, 1)    #EVSE: until 2023-04-24 port must be replaced with port+5 to permit changing modbus address 
-            buses[self.busID]['protocol'].send()    # Transmit
+        if 'ADDR' in options and options['ADDR']>0 and options['ADDR']<248:
+            Log(DB.LOG_INFO, f"Send command to change modbus device address to {options['ADDR']}")
+            # proto.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, self.port, [DB.SUBCMD_SET, (newModbusAddr>>8), (newModbusAddr&0xff)], DB.TX_RETRY, 1)    #EVSE: until 2023-04-24 port must be replaced with port+5 to permit changing modbus address 
+            proto.txQueueAddConfi16(self.port, DB.SUBCMD_SET, options['ADDR'])    #EVSE: until 2023-04-24 port must be replaced with port+5 to permit changing modbus address 
+            proto.send()    # Transmit
 
         if cal and cal < 65536: # Transmit calibration or INIT parameter
-            buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, self.port, [DB.SUBCMD_CALIBRATE, (cal>>8), (cal&0xff)], DB.TX_RETRY, 1)   
-            buses[self.busID]['protocol'].send()    # Transmit
+            proto.txQueueAddConfig16(self.port, DB.SUBCMD_CALIBRATE, cal)   
+            proto.send()    # Transmit
         
         parName = 'PAR1'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, self.port, [DB.SUBCMD_SET, (parValue>>8), (parValue&0xff)], DB.TX_RETRY, 1)
+            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET1, parValue)
         parName = 'PAR2'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, self.port, [DB.SUBCMD_SET2, (parValue>>8), (parValue&0xff)], DB.TX_RETRY, 1)
+            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET2, parValue)
         parName = 'PAR3'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, self.port, [DB.SUBCMD_SET3, (parValue>>8), (parValue&0xff)], DB.TX_RETRY, 1)
+            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET3, parValue)
         parName = 'PAR4'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, self.port, [DB.SUBCMD_SET4, (parValue>>8), (parValue&0xff)], DB.TX_RETRY, 1)
-        buses[self.busID]['protocol'].send()    # Transmit
+            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET4, parValue)
+        proto.send()    # Transmit
         parName = 'PAR5'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, self.port, [DB.SUBCMD_SET5, (parValue>>8), (parValue&0xff)], DB.TX_RETRY, 1)
-        buses[self.busID]['protocol'].send()    # Transmit
+            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET5, parValue)
+        proto.send()    # Transmit
         parName = 'PAR6'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, self.port, [DB.SUBCMD_SET6, (parValue>>8), (parValue&0xff)], DB.TX_RETRY, 1)
-        buses[self.busID]['protocol'].send()    # Transmit
+            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET6, parValue)
+        proto.send()    # Transmit
         parName = 'PAR7'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, self.port, [DB.SUBCMD_SET7, (parValue>>8), (parValue&0xff)], DB.TX_RETRY, 1)
-        buses[self.busID]['protocol'].send()    # Transmit
+            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET7, parValue)
+        proto.send()    # Transmit
         parName = 'PAR8'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, self.port, [DB.SUBCMD_SET8, (parValue>>8), (parValue&0xff)], DB.TX_RETRY, 1)
-        buses[self.busID]['protocol'].send()    # Transmit
+            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET8, parValue)
+        proto.send()    # Transmit
         parName = 'PAR9'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, self.port, [DB.SUBCMD_SET9, (parValue>>8), (parValue&0xff)], DB.TX_RETRY, 1)
-        buses[self.busID]['protocol'].send()    # Transmit
+            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET9, parValue)
+        proto.send()    # Transmit
         parName = 'PAR10'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, self.port, [DB.SUBCMD_SET10, (parValue>>8), (parValue&0xff)], DB.TX_RETRY, 1)
-        buses[self.busID]['protocol'].send()    # Transmit
- 
+            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET10, parValue)
+        proto.send()    # Transmit
+        parName = 'PAR11'; 
+        if parName in self.options and self.options[parName] < 65536:
+            parValue = self.options[parName]
+            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET112, parValue)
+        proto.send()    # Transmit
 
-        if newHwAddr and newHwAddr>0 and newHwAddr<0xffff:
-            log(DB.LOG_INFO, f'Change module address from {self.devAddr:04x} to {newHwAddr}')
-            buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, 0, [(newHwAddr >> 8), (newHwAddr&0xff), (0-(newHwAddr >> 8)-(newHwAddr&0xff)-0xa5)], DB.TX_RETRY,1)
-            buses[self.busID]['protocol'].send()    # Transmit
+        if 'EV Mode' in self.portName:
+            parName = 'EVMAXCURRENT'; 
+            if parName in self.options and self.options[parName] >= 3 and self.options[parName] <= 36:
+                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET1, options[parName])
+            parName = 'EVMAXPOWER'; 
+            if parName in self.options and self.options[parName] >= 1000 and self.options[parName] <= 25000:
+                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET2, options[parName])
+            parName = 'EVSTARTPOWER'; 
+            if parName in self.options and self.options[parName] >= 800 and self.options[parName] <= 25000:
+                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET3, options[parName])
+            parName = 'EVSTOPTIME'; 
+            if parName in self.options and self.options[parName] >= 5 and self.options[parName] <= 600:
+                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET4, options[parName])
+            proto.send()
+            parName = 'EVAUTOSTART'; 
+            if parName in self.options and self.options[parName] >= 0 and self.options[parName] <= 2:
+                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET5, options[parName])
+            parName = 'EVMAXPOWER2'; 
+            if parName in self.options and self.options[parName] >= 0 and self.options[parName] <= 25000:
+                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET6, options[parName])
+            parName = 'EVPOWERTIME'; 
+            if parName in self.options and self.options[parName] >= 0 and self.options[parName] <= 43200:
+                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET7, options[parName])
+            parName = 'EVPOWERTIME2'; 
+            if parName in self.options and self.options[parName] >= 0 and self.options[parName] <= 43200:
+                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET8, options[parName])
+            parName = 'EVWAITTIME'; 
+            if parName in self.options and self.options[parName] >= 3 and self.options[parName] <= 60:
+                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET9, options[parName])
+            parName = 'EVMETERTYPE'; 
+            if parName in self.options and self.options[parName] >= 0 and self.options[parName] <= 1:
+                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET10, options[parName])
+            parName = 'EVMINVOLTAGE'; 
+            if parName in self.options and self.options[parName] >= 0 and self.options[parName] <= 500:
+                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET11, options[parName])
+            proto.send()
+     
+
+        if 'HWADDR' in options and options['HWADDR']>0 and options['HWADDR']<0xffff:
+            log(DB.LOG_INFO, f"Change module address from {self.devAddr:04x} to {options['HWADDR']:04x}")
+            proto.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, 0, [(options['HWADDR'] >> 8), (options['HWADDR']&0xff), (0-(options['HWADDR'] >> 8)-(options['HWADDR']&0xff)-0xa5)], DB.TX_RETRY,1)
+            proto.send()    # Transmit
             # Change address to every devices
-            devIDbase = (self.busID<<24) | (self.newAddr<<8)    #0xBBNNNN00
+            devIDbase = (self.busID<<32) | (options['HWADDR']<<16)    #0xBBNNNN0000
             for dev in Devices:
-                if (dev & 0xffffff00) == (self.devID & 0xffffff00):
+                if (dev & 0xffffff0000) == (self.devID & 0xffffff0000):
                     d = Devices[dev]
-                    d.devID &= 0x000000ff
+                    d.devID &= 0x000000ffff
                     d.devID |= devIDbase
-                    d.frameAddr = devIDbase >> 8
+                    d.frameAddr = devIDbase >> 16
                     d.devAddr = d.frameAddr & 0xffff
-                    d.devIDname = f"{d.frameAddr:06x}_{d.port:02x}"
+                    d.devIDname = f"{d.frameAddr:06x}_{d.port:04x}"
                     if d.devIDname2 != "":
-                        d.devIDname2 = f"{d.frameAddr:06x}_{(d.port+0x80):02x}"
+                        d.devIDname2 = f"{d.frameAddr:06x}_{(d.port+0x80):04x}"
                     Devices[d.devID] = Devices[self.devID]
                     del Devices[self.devID]
+
+        if 'A' not in self.options:
+            self.options['A'] = 1
+        if 'B' not in self.options:
+            self.options['B'] = 0
 
 
         if diff & 19:
             # update HA configuration
-            log(DB.LOG_INFO, f'Update configuration to domotic controller for module {self.devIDname}:\r\n  {portConf}\r\n  {haOptions}')
+            log(DB.LOG_INFO, f'Update configuration to domotic controller for module {self.devIDname}:\r\n  {options}\r\n  {haOptions}')
             self.updateFromBus(DB.UPDATE_CONFIG)
 
+        if value:
+            self.updateFromBus(DB.UPDATE_VALUE, value)
 
 ######################################## DomBusProtocol class ###############################################    
 class DomBusProtocol(asyncio.Protocol):
@@ -568,8 +629,8 @@ class DomBusProtocol(asyncio.Protocol):
         self.busID = busID
         self.devAddr = 0    #0xff31
         self.frameAddr = 0  #0x01ff31       bus|devAddr      used in Modules{}
-        self.devID = 0      #0x01ff3101     bus|devAddr|port used in Devices{}
-        self.devIDname = "" #b01_hff31_p01
+        self.devID = 0      #0x01ff310001     bus|devAddr|port used in Devices{}
+        self.devIDname = "" #b01_hff31_p0001
         self.on_data_received_callback = on_data_received_callback
         self.transport = None
         self.buffer = b""   
@@ -589,13 +650,13 @@ class DomBusProtocol(asyncio.Protocol):
         
 
     def setID(self, port):
-        """Set frameAddr (01ff31) devID (01ff3101) and devIDname ("b01_hff31_p01")"""
+        """Set frameAddr (01ff31) devID (01ff310001) and devIDname ("b01_hff31_p0001")"""
         # Known data: self.busID and self.devAddr
         self.frameAddr = (self.busID << 16) + self.devAddr  # e.g. 0x01ff51 
-        self.devID = (self.frameAddr << 8) + port
+        self.devID = (self.frameAddr << 16) + port
         self.devIDname = ""
         if port != 0:
-            self.devIDname = f"b{self.busID:02x}_h{self.devAddr:04x}_p{port:02x}"
+            self.devIDname = f"b{self.busID:02x}_h{self.devAddr:04x}_p{port:04x}"
 
     def data_received(self, data):
         """Called when data is received from the serial port."""
@@ -670,14 +731,14 @@ class DomBusProtocol(asyncio.Protocol):
                         msg += 'DCMD '
                         logLevel |= DB.LOG_DUMPDCMD
                     
-                    msg += f"P{port} {arg}"
+                    msg += f"P{port:02x} {arg:02x}"
                     i += 1
                     if i+cmdLen >= frameLen:
                         msg += " ERROR: cmd length > frame length"
                         break
                     else:
                         for j in range(2, cmdLen):
-                            msg += f" {frame[i + j]}"
+                            msg += f" {frame[i + j]:02x}"
                         i += cmdLen
                     msg += ';'
             if frameError == DB.FRAME_INVALID_CHECKSUM:
@@ -824,7 +885,8 @@ class DomBusProtocol(asyncio.Protocol):
                                         if (self.frameAddr not in portsDisabled) or (port not in portsDisabled[self.frameAddr]):
                                             # this device has not been disabled
                                             if self.devID not in Devices:
-                                                portConf = f'ID={self.devIDname},{DB.PORTTYPES_NAME[portType]},{DB.PORTOPTS_NAME[portOpt]}' 
+                                                ha = dict()
+                                                options = dict()
 
                                                 ############################## New device, read from Bus => set default parameters ########################
                                                 if portType != DB.PORTTYPE_CUSTOM or portOpt >= 2:
@@ -837,10 +899,10 @@ class DomBusProtocol(asyncio.Protocol):
                                                             elif "S.State" in portName:
                                                                 ha['options'] = ['Off', 'On', 'HiCurr', 'LoVolt', 'HiDiss', 'HiDissLoVolt']
                                                         elif portOpt==DB.PORTOPT_DIMMER:
-                                                            ha = {'p': 'number', 'min': 0, 'max':100, 'step':1, 'unit_of_measurement': '%'}
                                                             if 'EV Current' in portName:
-                                                                ha['max'] = 32
-                                                                ha['unit_of_measurement'] = 'A'
+                                                                ha = {'p': 'number', 'min': 0, 'max': 36, 'step': 1, 'unit_of_measurement': 'A'}
+                                                            else:
+                                                                ha = {'p': 'number', 'min': 0, 'max':100, 'step':1, 'unit_of_measurement': '%'}
                                                         elif portOpt==DB.PORTOPT_LATCHING_RELAY:
                                                             ha['p'] = 'switch'
                                                         elif portOpt==DB.PORTOPT_ADDRESS:
@@ -850,27 +912,30 @@ class DomBusProtocol(asyncio.Protocol):
                                                             ha['device_class'] = 'power'
                                                             ha['state_class'] = 'measurement'
                                                             ha['unit_of_measurement'] = 'W'
-                                                            # sValue="0;0"    #power,energy
+                                                            ha['suggested_display_precision'] = 0
                                                             if "Solar" in portName or "Exp" in portName or portOpt==DB.PORTOPT_EXPORT_ENERGY:
                                                                 ha['icon'] = 'mdi:solar-power'
                                                         elif portOpt==DB.PORTOPT_VOLTAGE:
                                                             ha['p'] = 'sensor'
                                                             ha['device_class'] = 'voltage'
                                                             ha['unit_of_measurement'] = 'V'
+                                                            ha['suggested_display_precision'] = 0
                                                         elif portOpt==DB.PORTOPT_CURRENT:
                                                             ha['p'] = 'sensor'
                                                             ha['device_class'] = 'current'
                                                             ha['unit_of_measurement'] = 'A'
                                                         elif portOpt==DB.PORTOPT_POWER_FACTOR:
-                                                            portConf += ",A=0.1"
+                                                            options['A'] = 0.1
                                                             ha['p'] = 'sensor'
                                                             ha['device_class'] = 'power_factor'
                                                             ha['unit_of_measurement'] = '%'
+                                                            ha['suggested_display_precision'] = 1
                                                         elif portOpt==DB.PORTOPT_FREQUENCY:
-                                                            portConf += ",A=0.01"
+                                                            options['A'] = 0.01
                                                             ha['p'] = 'sensor'
                                                             ha['device_class'] = 'frequency'
                                                             ha['unit_of_measurement'] = 'Hz'
+                                                            ha['suggested_display_precision'] = 2
                                                         elif portOpt==DB.PORTOPT_TOUCH:
                                                             ha['p'] = 'binary_sensor'
                                                             ha['device_class'] = 'motion'
@@ -880,45 +945,43 @@ class DomBusProtocol(asyncio.Protocol):
                                                         elif "EV Mode" in portName:   #Off, Solar, 50%, 75%, 100%, Managed
                                                             ha['p'] = 'select'  # platform
                                                             ha['options'] = ['Off', 'Solar', '25%', '50%', '75%', '100%', 'Man']
-                                                            # TODO
-                                                            setMaxCurrent=16
-                                                            setMaxPower=6000
-                                                            setStartPower=1200
-                                                            setStopTime=90
-                                                            setAutoStart=1
-                                                            setMeterType=0
-                                                            portConf+=f",EVMAXCURRENT={setMaxCurrent},EVMAXPOWER={setMaxPower},EVSTARTPOWER={setStartPower},EVSTOPTIME={setStopTime},EVAUTOSTART={setAutoStart},ENERGYMETERTYPE=0"
-                                                            # nValue=0
-                                                            # sValue="0"
-                                                            # Configure 
-                                                            self.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, port, [DB.SUBCMD_SET, 0, (setMaxCurrent&0xff)], DB.TX_RETRY,0)
-                                                            self.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, port, [DB.SUBCMD_SET2, ((setMaxPower>>8)&0xff), (setMaxPower&0xff)], DB.TX_RETRY,0)
-                                                            self.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, port, [DB.SUBCMD_SET3, ((setStartPower>>8)&0xff), (setStartPower&0xff)], DB.TX_RETRY,0)
-                                                            self.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, port, [DB.SUBCMD_SET4, ((setStopTime>>8)&0xff), (setStopTime&0xff)], DB.TX_RETRY,0)
-                                                            self.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, port, [DB.SUBCMD_SET5, ((setAutoStart>>8)&0xff), (setAutoStart&0xff)], DB.TX_RETRY,0)
-                                                            # Check if EV MAXCURRENT device exists, with DeviceID=Hxxxx_P0018
-                                                            # TODO: create EVMAXCURRENT device
-                                                            # evmaxcurrentDevID="{:x}.{:x}".format(frameAddr, 0x104)  # 0x103 => SUBCMD_SET for port number 4
-                                                            # Log(LOG_INFO,f"Add virtual device EV MaxCurrent with DeviceID={evmaxcurrentDeviceID}")
-                                                            # Domoticz.Device(Name="("+evmaxcurrentDevID+") EV MaxCurrent", TypeName="Setpoint", Type=242, Subtype=1, Options={'ValueStep':'1', 'ValueMin':'6', 'ValueMax':'32', 'ValueUnit':'A'}, DeviceID=evmaxcurrentDeviceID, Unit=UnitFree, Description=f"ID={evmaxcurrentDevID},SETPOINT,TypeName=Setpoint,DESCR=EV Max Current").Create()
-                                                            # Devices[UnitFree].Update(nValue=16, sValue="16", Used=1)
-                                                            # unit=getDeviceUnit(Devices,1)   # find another free Unit to create EV Mode
+                                                            options['EVMAXCURRENT'] = 16
+                                                            options['EVMAXPOWER'] = 6000
+                                                            options['EVSTARTPOWER'] = 1200
+                                                            options['EVSTOPTIME'] = 90
+                                                            options['EVAUTOSTART'] = 1
+                                                            options['EVMAXPOWER2'] = 0
+                                                            options['EVMAXPOWERTIME'] = 0
+                                                            options['EVMAXPOWERTIME2'] = 0
+                                                            options['EVWAITTIME'] = 6
+                                                            options['EVMETERTYPE'] = 0
+                                                            options['EVMINVOLTAGE'] = 207
+                                                            # Create virtual device EVMAXCURRENT, devID 0x104
+
+                                                            manager.parseConfiguration(self.devID+0x100, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x100:03x} EV MaxCurrent", {}, {'p': 'number', 'min': 0, 'max':36, 'step':1, 'unit_of_measurement': 'A'}, options['EVMAXCURRENT'])
+                                                            manager.parseConfiguration(self.devID+0x200, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x200:03x} EVMAXPOWER", {}, {'p': 'number', 'min': 1000, 'max':25000, 'step':100, 'unit_of_measurement': 'W'}, options['EVMAXPOWER'])
+                                                            manager.parseConfiguration(self.devID+0x300, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x300:03x} EVSTARTPOWER", {}, {'p': 'number', 'min': 800, 'max':25000, 'step':100, 'unit_of_measurement': 'W'}, options['EVSTARTPOWER'])
+                                                            manager.parseConfiguration(self.devID+0x400, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x400:03x} EVSTOPTIME", {}, {'p': 'number', 'min': 5, 'max':600, 'step':1, 'unit_of_measurement': 's'}, options['EVSTOPTIME'])
+                                                            manager.parseConfiguration(self.devID+0x500, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x500:03x} EVAUTOSTART", {}, {'p': 'number', 'min': 0, 'max':2, 'step':1, 'unit_of_measurement': ' '}, options['EVAUTOSTART'])
+                                                            manager.parseConfiguration(self.devID+0x600, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x600:03x} EVMAXPOWER2", {}, {'p': 'number', 'min': 0, 'max':25000, 'step':100, 'unit_of_measurement': 'W'}, options['EVMAXPOWER2'])
+                                                            manager.parseConfiguration(self.devID+0x700, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x700:03x} EVMAXPOWERTIME", {}, {'p': 'number', 'min': 0, 'max':43200, 'step':1, 'unit_of_measurement': 's'}, options['EVMAXPOWERTIME'])
+                                                            manager.parseConfiguration(self.devID+0x800, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x800:03x} EVMAXPOWERTIME2", {}, {'p': 'number', 'min': 0, 'max':43200, 'step':1, 'unit_of_measurement': 's'}, options['EVMAXPOWERTIME2'])
+                                                            manager.parseConfiguration(self.devID+0x900, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x900:03x} EVWAITTIME", {}, {'p': 'number', 'min': 3, 'max':60, 'step':1, 'unit_of_measurement': 's'}, options['EVWAITTIME'])
+                                                            manager.parseConfiguration(self.devID+0xa00, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0xa00:03x} EVMETERTYPE", {}, {'p': 'number', 'min': 0, 'max':1, 'step':1, 'unit_of_measurement': ' '}, options['EVMETERTYPE'])
+                                                            manager.parseConfiguration(self.devID+0x10A-4, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x106:03x} EV MinVoltage", {}, {'p': 'number', 'min': 200, 'max':450, 'step':1, 'unit_of_measurement': 'V'}, options['EVMINVOLTAGE'])
                                                     elif portType == DB.PORTTYPE_IN_COUNTER:
                                                         # counter or kWh ?
                                                         # ha['device_class'] = 'energy'
                                                         # ha['state_class'] = 'total_increasing'
                                                         # ha['unit_of_measurement'] = 'kWh'
-                                                        portConf += f',DIVIDER=2000'   # Default: 1kW = 2000 pulses => 1 pulse = 0.0005Wh
+                                                        options['DIVIDER'] = 2000   # Default: 1kW = 2000 pulses => 1 pulse = 0.0005Wh
 
-#                                                    if portType == DB.PORTTYPE_IN_DIGITAL:
-#                                                        ha['device_class'] = 'motion' if portName == 'Touch' else 'door'
-
-                                                    self.parseConfiguration(devID, portType, portOpt, portName, portConf)
+                                                    manager.parseConfiguration(self.devID, portType, portOpt, f"P{port:02x} {portName}", options, ha)
                                                     # log(DB.LOG_DEBUG, f"DomBusDevice({self.devID:08x}, {portType:x}, {portOpt:x}, P{port:02x} {portName}, {portConf}, {Options}, {ha})")
                                                     # Devices[self.devID] = DomBusDevice(self.devID, portType, portOpt, f"P{port:02x} {portName}", portConf, Options, ha)
                                                     # Devices[self.devID].updateFromBus(DB.UPDATE_VALUE | DB.UPDATE_CONFIG, 0)
+                                                    options.clear()
                                                     ha.clear()
-                                                    Options.clear()
 
                                         port+=1;
                         elif cmd==DB.CMD_SET:
@@ -1089,6 +1152,10 @@ class DomBusProtocol(asyncio.Protocol):
             Modules[self.frameAddr] = [ int(time.time()), int(time.time()*1000), int(time.time())+3-DB.PERIODIC_STATUS_INTERVAL, 0, 'N.A.', 'N.A.']
         else:
             Modules[self.frameAddr][DB.LASTRX] = time.time()
+
+    def txQueueAddConfig16(self, port, subcmd, value):
+        """Send a CMD_CONFIG with a SUBCMD and 16bit value"""
+        self.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, port, [subcmd, ((value>>8)&0xff), (value&0xff)], DB.TX_RETRY, 1)
 
     def txQueueAdd(self, frameAddr, cmd,cmdLen,cmdAck,port,args,retries,now):
         #add a command in the tx queue for the specified module (frameAddr)
@@ -1461,11 +1528,12 @@ class DomBusManager:
             bisect.insort(dlist, dev)
         for dev in dlist:
             d = Devices[dev]
-            if (dev >> 8) in Modules:
+            if (dev >> 16) in Modules:
                 writer.write(f'Sending configuration refresh for device {d.devIDname} portType={d.portType:08x} platform={d.ha["p"]}...\r\n'.encode())
                 d.updateFromBus(DB.UPDATE_CONFIG)
+                d.updateFromBus(DB.UPDATE_VALUE, d.value, d.counterValue)
             else:
-                writer.write(f'Skip sending configuration for device {d.devIDname}: module {(dev >> 8):06x} not alive or not received yet!\r\n'.encode())
+                writer.write(f'Skip sending configuration for device {d.devIDname}: module {(dev >> 16):06x} not alive or not received yet!\r\n'.encode())
         del dlist            
 
     async def cmd_showbus(self, args, writer):
@@ -1519,10 +1587,10 @@ class DomBusManager:
             devID = (self.selectedBus << 24) + (self.selectedModule << 8) + port
             if devID in Devices:
                 # Device exists: check new configuration 
-                self.parseConfiguration(devID, Devices[devID].portType, Devices[devID].portOpt, "", args[1])
+                self.parseConfiguration(devID, Devices[devID].portType, Devices[devID].portOpt, "") # TODO: what parameters are sent by Telnet?
 
             else:
-                if self.selectedModule == 0 or (devID>>8) not in Modules: 
+                if self.selectedModule == 0 or (devID>>16) not in Modules: 
                     writer.write(b'Please select an existing module with command "showmodule XXXX"\r\n')
                     self.showModuleList(writer)
                 else:
@@ -1543,161 +1611,47 @@ class DomBusManager:
 
     def showDeviceList(self, writer):
         writer.write(f"Devices (ports) for the selected module {self.selectedModule:04x} on bus {self.selectedBus:02x}:\r\n".encode())
-        devIDbase = (self.selectedBus << 24) + (self.selectedModule << 8)
-        for p in range(1, 256):
+        devIDbase = (self.selectedBus << 32) + (self.selectedModule << 16)
+        for p in range(1, 512):
             devID = devIDbase + p
             if devID in Devices:
-                writer.write(f'- {Devices[devID].portName:14} {Devices[devID].portConf}\r\n'.encode())
+                writer.write(f'- {Devices[devID].portConf}\r\n'.encode())
 
-    def parseConfiguration(self, devID, portType, portOpt, portName, confString):
-        """Received a configuration string from the user: update configuration on both Devices and DomBus module"""
+    def parseConfiguration(self, devID, portType, portOpt, portName, options:dict, ha:dict, value:int = None):
+        """Received options and ha dicts: check configuration ond call updateDeviceConfig to update both Device and DomBus module"""
         # confString: "ID=01ff37_01,IN_DIGITAL,INVERTED,DCMD(Pulse)=01ff36_07:Toggle,DCMD(Pulse1)=01ff36_08:Toggle"
-        devIDname = f"{(devID >> 8):06x}_{(devID & 0xff):02x}"
-        portConfName = ""   # Other parameters to write in portConf, else than portType and portOpt
-        newHwAddr = 0       # Used to change module address
-        newModbusAddr = 0   # Used to change the Modbus slave address of a meter
         dcmd = {}           # Used to set DCMD configuration
-        options = {}
-        haOptions = {}
+        optionsNew = {}
+        haNew = {}
         cal = None
-        for cmd in confString.split(','):
-            cmdu = cmd.upper().strip()
-            cmdeq = cmdu.split('=')
-            if cmdu in DB.PORTTYPES:
-                # IN_DIGITAL or OUT_RELAY_LP or other port configuration
-                portType = DB.PORTTYPES[cmdu]
-            elif cmdu in DB.PORTOPTS:
-                # INVERTED, NORMAL, PULLUP, ....
-                portOpt = DB.PORTOPTS[cmdu]
-            elif cmdeq[0] == "HWADDR":    # Request to change Modbus address of a meter
-                par = getHex(cmdeq[1])
-                if par and par > 0 and par < 65535:  
-                    newHwAddr = par
-            elif cmdeq[0] == "ADDR":    # Request to change Modbus address of a meter
-                par=getInt(cmdeq[1])
-                if par and par >= 1 and par <= 5:   # only 4 devices are supported
-                    newModbusAddr = par
-            elif cmdeq[0] == 'A':
-                par = getFloat(cmdeq[1])
-                if par:
-                    options['A'] = par
-                    portConfName += f',A={par}'
-            elif cmdeq[0] == 'B':
-                par = getFloat(cmdeq[1])
-                if par:
-                    options['B'] = par 
-                    portConfName += f',B={par}'
-            elif cmdeq[0] == 'CAL':
-                # calibration value, e.g. 0.2
-                par = getFloat(cmdeq[1])
-                if par:
-                    cal = int(par * 10)
-            elif cmdeq[0] == 'INIT':
-                # configuration value, integer
-                par = getInt(cmdeq[1])
-                if par:
-                    cal = par
-                    portConfName += f',{cmdeq[0]}={cmdeq[1]}'
-            elif cmdeq[0] == 'FUNCTION':
-                # used to convert an analog value to another
-                options = {'function' : cmdeq[1]}
-                portType = DB.PORTTYPE_IN_ANALOG
-                if options['function'] == '3950':
-                    # NTC sensor with B=3950 => temperature
-                    ha.update(DB.PORTTYPES_HA[DB.PORTTYPE_SENSOR_TEMP]) # set parameters for this type of sensor
-                    portConfName += f",{cmdeq[0]}={cmdeq[1]}"
-            elif cmdeq[0] == "OPPOSITE":  #Used with kWh meter to set power to 0 when the opposite counter received a pulse (if import power >0, export power must be 0, and vice versa)
-                if portType == DB.PORTTYPE_IN_COUNTER:
-                    opposite=devIDName2devID(cmdeq[1])   # syntax: OPPOSITE=013701_02
-                    if opposite and Device[opposite].portType == DB.PORTTYPE_IN_COUNTER:    # Opposite devID exists and it's a counter!
-                        options['opposite'] = opposite
-                        Devices[opposite].options['opposite'] = devID  # also set opposite on the other device!
-                        if ',OPPOSITE=' not in Device[opposite].portConf:
-                            Device[opposite].portConf += f',OPPOSITE={devID}'
-                        portConfName += f",{cmdeq[0]}={cmdeq[1]}"
-            elif cmdeq[0] == "DIVIDER": #Used with kWh meter to set how many pulses per kWh, e.g. 1000 (default), 2000, 1600, ...
-                if portType == DB.PORTTYPE_IN_COUNTER:
-                    par = getInt(cmdeq[1])
-                    if par and par != 0:
-                        options['A'] = 1 / par
-                        portConfName += f",{cmdeq[0]}={cmdeq[1]}"
-            elif cmdeq[0] in ('PAR1', 'PAR2', 'PAR3', 'PAR4'):
-                par = getInt(cmdeq[1])
-                if par and par < 65536:
-                    options[cmdeq[0]] = par
-                    portConfName += f",{cmdeq[0]}={par}"
-            elif cmdeq[0] == "EVMAXCURRENT" and portType == DB.PORTTYPE_CUSTOM:    
-                par = getInt(cmdeq[1])
-                if par == None or par<6 or par>36:
-                    par = 16    # default
-                options['PAR1'] = par 
-                portConfName += f",{cmdeq[0]}={par}"
-            elif cmdeq[0] == "EVMAXPOWER" and portType == DB.PORTTYPE_CUSTOM:    
-                par = getInt(cmdeq[1])
-                if par == None or par<1000 or par>25000:
-                    par = 6000    # default
-                options['PAR2'] = par 
-                portConfName += f",{cmdeq[0]}={par}"
-            elif cmdeq[0] == "EVMAXPOWER2" and portType == DB.PORTTYPE_CUSTOM:    
-                par = getInt(cmdeq[1])
-                if par == None or par<1000 or par>25000:
-                    par = 6000    # default
-                options['PAR6'] = par 
-                portConfName += f",{cmdeq[0]}={par}"
-            elif cmdeq[0] == "EVMAXPOWERTIME" and portType == DB.PORTTYPE_CUSTOM:    
-                par = getInt(cmdeq[1])
-                if par == None or par<60 or par>43200:
-                    par = 0    # default
-                options['PAR7'] = par 
-                portConfName += f",{cmdeq[0]}={par}"
-            elif cmdeq[0] == "EVMAXPOWER2TIME" and portType == DB.PORTTYPE_CUSTOM:    
-                par = getInt(cmdeq[1])
-                if par == None or par<60 or par>43200:
-                    par = 0    # default
-                options['PAR8'] = par 
-                portConfName += f",{cmdeq[0]}={par}"
-            elif cmdeq[0] == "EVSTARTPOWER" and portType == DB.PORTTYPE_CUSTOM:    
-                par = getInt(cmdeq[1])
-                if par == None or par<800 or par>25000:
-                    par = 1200    # default
-                options['PAR3'] = par 
-                portConfName += f",{cmdeq[0]}={par}"
-            elif cmdeq[0] == "EVSTOPTIME" and portType == DB.PORTTYPE_CUSTOM:    
-                par = getInt(cmdeq[1])
-                if par == None or par<5 or par>600:
-                    par = 90    # default
-                options['PAR4'] = par 
-                portConfName += f",{cmdeq[0]}={par}"
-            elif cmdeq[0] == "EVAUTOSTART" and portType == DB.PORTTYPE_CUSTOM: 
-                par = getInt(cmdeq[1])
-                if par == None or par>1:
-                    par = 1    # default
-                options['PAR5'] = par 
-                portConfName += f",{cmdeq[0]}={par}"
-            elif cmdeq[0] == "EVWAITTIME" and portType == DB.PORTTYPE_CUSTOM:    
-                par = getInt(cmdeq[1])
-                if par == None or par<3 or par>60:
-                    par = 6    # default
-                options['PAR9'] = par 
-                portConfName += f",{cmdeq[0]}={par}"
-            elif cmdeq[0] == "EVMETERTYPE" and portType == DB.PORTTYPE_CUSTOM:
-                par = getInt(cmdeq[1])
-                if par == None or par>1:
-                    par = 0    # default
-                options['PAR10'] = par 
-                portConfName += f",{cmdeq[0]}={par}"
-            # TODO: DCMD    
+        d = None
 
-            portConf = f'ID={devIDname},{DB.PORTTYPES_NAME[portType]}'
-            if portOpt != 0:
-                portConf += f',{DB.PORTOPTS_NAME[portOpt]}'
-            portConf += f',{portConfName}'
-            if devID not in Devices:
-                # device object does not exist => create it
-                portName = f'P{(devID & 0xff):02x} {portName}'
-                Devices[devID] = DomBusDevice(devID, portType, portOpt, portName, portConf, options, haOptions) # Create device object with minimal configuration
+        if devID in Devices:
+            d = Devices[devID]
 
-            Devices[devID].updateDeviceConfig(newHwAddr, newModbusAddr, portType, portOpt, cal, dcmd, portConf, options, haOptions)  # Update configuration (setting CAL, DCMD, device_class, ...)
+        if d:
+            # device already exist => update options and ha dictionary
+            optionsNew = d.options.copy()
+            haNew = d.ha.copy()
+        else:
+            # new device
+            optionsNew['A'] = 1
+            optionsNew['B'] = 0
+            if portType in DB.PORTTYPES_HA:
+                haNew = DB.PORTTYPES_HA[portType].copy()
+        optionsNew.update(options)
+        haNew.update(ha)
+
+        # Now check parameters #TODO
+
+        # Create device, if not exist
+        if not d:
+            # device object does not exist => create it
+            d = DomBusDevice(devID, portType, portOpt, portName, optionsNew, haNew) # Create device object with minimal configuration
+            Devices[devID] = d 
+
+        # Update MQTT and DomBus module
+        d.updateDeviceConfig(portType, portOpt, cal, dcmd, optionsNew, haNew, value)  # Update configuration (setting CAL, DCMD, device_class, ...)
                 
 
 ####################################################################### main #################################################################################

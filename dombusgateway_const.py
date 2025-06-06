@@ -44,7 +44,8 @@ CMD_DCMD_CONFIG=0xe0            #Send DCMD configuration
 CMD_DCMD=0xf0                   #Receive DCMD command from Dombus
 
 SUBCMD_CALIBRATE=0x00           #Send calibration value to a temperature/humidity sensor
-SUBCMD_SET=0x01                 #Send a 16bit value (used to change modbus device address and evseMaxCurrent)
+SUBCMD_SET=0x01                 #Send parameter 1 (16bit value)
+SUBCMD_SET1=0x01                #Send parameter 1 (16bit value)
 SUBCMD_SET2=0x02                #Send parameter 2 (16bit value)
 SUBCMD_SET3=0x03                #Send parameter 3 (16bit value)
 SUBCMD_SET4=0x04                #Send parameter 4 (16bit value)
@@ -54,6 +55,7 @@ SUBCMD_SET7=0x07                #Send parameter 7 (16bit value)
 SUBCMD_SET8=0x08                #Send parameter 8 (16bit value)
 SUBCMD_SET9=0x09                #Send parameter 9 (16bit value)
 SUBCMD_SET10=0x0a               #Send parameter 10 (16bit value)
+SUBCMD_SET11=0x0b               #Send parameter 11 (16bit value)
 SUBCMD_SETMAX=0x10              #Send parameter 16
 
 PORTTYPE_DISABLED=0x0000        #port not used
