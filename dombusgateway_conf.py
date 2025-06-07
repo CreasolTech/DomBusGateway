@@ -22,9 +22,32 @@ datadir = 'data'    # directory where Devices configuration and other data will 
 
 # Dombus buses (1 or more serial RS485 buses attached to DomBus modules
 buses = {
-    1: { 'serialPort': '/dev/ttyUSB0', },
-    # 2: { 'serialPort': '/dev/ttyUSB1', },
+    1: { 'serialPort': '/dev/ttyUSBdombus1', }, # first bus serving ground floor
+    2: { 'serialPort': '/dev/ttyUSBdombus2', }, # second bus serving 2nd floor
 }
+
+# If more than one serial port is used, it's better to identify the USB ports connected to the USB/RS485 adapters: check info below
+"""
+Assuming to use Linux (Debian, Ubuntu, Raspbian, ...), it may happen that more RS485/USB adapters are connected to the same computer, and it's important to identify the serial port in a persisten way to avoid troubles: if they have the same vendor id, product id and serial number, you have to follow the step-by-step procedure: assuming that ttyUSB0 is used as dombus #1, and ttyUSB1 as dombus #2
+
+    find the devpath for the bus #1, corresponding with ttyUSB0 in this example, running the command udevadm info -a /dev/ttyUSB0|egrep 'ATTRS.(idVendor|idProduct|devpath)'|head -n3
+    Assuming that result is
+
+     ATTRS{devpath}=="1.5"
+     ATTRS{idProduct}=="7523"
+     ATTRS{idVendor}=="1a86"
+
+    create/edit the file /etc/udev/rules.d/99-serial-ports.rules adding the line
+
+    SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", ATTRS{devpath}=="1.5", SYMLINK+="ttyUSBdombus1"
+
+    to set that the USB/RS485 adapter plugged to the USB port 1.5 should be named /dev/ttyUSBdombus1
+    Make a symlink using the command ln -s /dev/ttyUSB0 /dev/ttyUSBdombus1
+    This is needed now because the system is running with the adapter already plugged.
+    When the computer will reboot, the USB-RS485 serial adapter plugged to the port 1.5 will assume the device /dev/ttyUSBdombus1
+    Enter the Domoticz UI, Setup → Hardware, select the dombus1 hardware and change serial port from /dev/ttyUSB0 to /dev/ttyUSBdombus1, then click on Update button.
+    Repeat the steps above for the next RS485/USB serial adapters, to set the device to ttyUSBdombus2, ....
+"""
 
 # MQTT parameters: set mqttEnabled = 0 to disable this feature
 mqtt = {

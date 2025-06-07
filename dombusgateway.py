@@ -134,9 +134,9 @@ class DomBusDevice():
         
     def setPortConf(self):
         """set the self.portConf string specifying device configuration"""
-        self.portConf = f'{self.portName}'
+        self.portConf = ''
         if self.portType in DB.PORTTYPES_NAME:
-            self.portConf += f',{DB.PORTTYPES_NAME[self.portType]}'
+            self.portConf += f'{DB.PORTTYPES_NAME[self.portType]}'
         if self.portOpt in DB.PORTOPTS_NAME:
             self.portConf += f',{DB.PORTOPTS_NAME[self.portOpt]}'
 
@@ -187,7 +187,7 @@ class DomBusDevice():
         elif self.portType == DB.PORTTYPE_SENSOR_HUM:
             self.valueHA = self.value / 10.0         # DomBusTH sends relative humdity with 0.1% resolutiom
         elif self.portType & (DB.PORTTYPE_IN_ANALOG | DB.PORTTYPE_SENSOR_DISTANCE): # send value
-            self.valueHA = self.value
+            self.valueHA = float(self.value)
         elif self.portType == DB.PORTTYPE_SENSOR_TEMP_HUM:
             return  # ignore this kind of sensor (used by Domoticz only)
         elif self.portType == DB.PORTTYPE_IN_COUNTER:
@@ -485,7 +485,7 @@ class DomBusDevice():
 
         if diff & 7:
             # update DomBus module configuration
-            log(DB.LOG_INFO, f'Update configuration for DomBus module {self.devIDname}:\r\n  {portConf}')
+            log(DB.LOG_INFO, f'Update configuration for DomBus module {self.devIDname}:\r\n  {self.portConf}')
             proto.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 7, 0, self.port, [((self.portType>>24)&0xff), ((self.portType>>16)&0xff), ((self.portType>>8)&0xff), (self.portType&0xff), (self.portOpt >> 8), (self.portOpt&0xff)], DB.TX_RETRY,0)
             proto.send()    # Transmit
 
@@ -815,6 +815,10 @@ class DomBusProtocol(asyncio.Protocol):
                 cmd &= DB.CMD_MASK
                 if cmd == DB.CMD_CONFIG and port != 0xfe and (port & 0xf0) == 0xf0:
                     cmdLen = 4 # cmdLen does not make sense in case of full port configuration
+                if frameLen < frameIdx + cmdLen + 1:
+                    # invalid cmdLen: 
+                    log(DB.LOG_DEBUG, f"Invalid cmdLen={cmdLen}: ignore frame")
+                    return
                 if cmdLen>=3:
                     arg2 = frame[portIdx+2]
                     if cmdLen >= 4:
@@ -1488,9 +1492,12 @@ class DomBusManager:
                         await self.handle_arrow_key(arrow, writer)
                     continue
                 """
-                message = data.decode().strip()
-                log(DB.LOG_TELNET, f"Received {message}")
-                await self.handleCmd(message, writer) # parse commands
+                line = 0
+                for message in data.decode().split('\n'):
+                    if line == 0 or message.strip() != '':
+                        log(DB.LOG_TELNET, f"Received {message.strip()}")
+                        await self.handleCmd(message.strip(), writer) # parse commands
+                    line += 1
 
         except ConnectionResetError:
             log(DB.LOG_INFO, f"Telnet connection closed by {clientIP}")
@@ -1503,10 +1510,11 @@ class DomBusManager:
     async def handleCmd(self, message, writer):
         """Handle commands received from telnet port"""
         cmd = message.split(maxsplit=2) # ['show', 'module', '0xffe3 on bus 1']
-        if len(cmd)>=1 and cmd[0] in self.commands:
-            await self.commands[cmd[0]]['cmd'](cmd[1:], writer)
-        else:
-            writer.write(b'Invalid command: please type "help" for a list of commands\r\n> ') 
+        if len(cmd) >= 1:
+            if cmd[0] in self.commands:
+                await self.commands[cmd[0]]['cmd'](cmd[1:], writer)
+            else:
+                writer.write(f'Invalid command {cmd[0]}: please type "help" for a list of commands\r\n> '.encode()) 
         writer.write(b'\r\n> ')
         await writer.drain()
 
@@ -1584,11 +1592,34 @@ class DomBusManager:
                 port = 0
                 writer.write(b"Invalid port\r\n")
         if (port != 0):
-            devID = (self.selectedBus << 24) + (self.selectedModule << 8) + port
+            devID = (self.selectedBus << 32) + (self.selectedModule << 16) + port
             if devID in Devices:
                 # Device exists: check new configuration 
-                self.parseConfiguration(devID, Devices[devID].portType, Devices[devID].portOpt, "") # TODO: what parameters are sent by Telnet?
-
+                portType = None
+                portOpt = None
+                portName = None
+                options = {}
+                ha = {}
+                
+                # check telnet keywords:
+                for c in args[1].split(','):
+                    try:
+                        cmd=c.split('=')[0]
+                        val=c.split('=')[1]
+                    except Exception:
+                        val = None
+                    cmdu = cmd.upper()
+                    writer.write(f"cmd={cmd} val={val}\r\n".encode())
+                    if cmdu in DB.PORTTYPES:
+                        portType = DB.PORTTYPES[cmdu]
+                    elif cmdu in DB.PORTOPTS:
+                        portOpt = DB.PORTOPTS[cmdu]
+                    elif cmdu in DB.OPTIONS_NAMES and val is not None:
+                        options[cmdu] = val
+                    elif cmd.lower() in DB.HA_NAMES and val is not None:
+                        ha[cmd.lower()] = val
+                    
+                self.parseConfiguration(devID, portType, portOpt, portName, options, ha) 
             else:
                 if self.selectedModule == 0 or (devID>>16) not in Modules: 
                     writer.write(b'Please select an existing module with command "showmodule XXXX"\r\n')
@@ -1615,7 +1646,7 @@ class DomBusManager:
         for p in range(1, 512):
             devID = devIDbase + p
             if devID in Devices:
-                writer.write(f'- {Devices[devID].portConf}\r\n'.encode())
+                writer.write(f'- {Devices[devID].portName}: {Devices[devID].portConf}\r\n'.encode())
 
     def parseConfiguration(self, devID, portType, portOpt, portName, options:dict, ha:dict, value:int = None):
         """Received options and ha dicts: check configuration ond call updateDeviceConfig to update both Device and DomBus module"""
@@ -1643,6 +1674,12 @@ class DomBusManager:
         haNew.update(ha)
 
         # Now check parameters #TODO
+        if 'DIVIDER' in optionsNew:
+            optionsNew['A'] = 1 / float(optionsNew['DIVIDER'])
+        if 'A' in optionsNew:
+            optionsNew['A'] = float(optionsNew['A'])
+        if 'B' in optionsNew:
+            optionsNew['B'] = float(optionsNew['B'])
 
         # Create device, if not exist
         if not d:

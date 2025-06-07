@@ -186,9 +186,12 @@ PORTOPTS_NAME={
     0x0004: 'PULLDOWN',
     0x00fe: 'EV3PSELECT',
     }
-
-SENSOR_ALARM_NAME = [ 'Closed', 'Open', 'Masked', 'Tampered', 'Shorted' ]   # state name for triple-biased alarm sensor
     
+SENSOR_ALARM_NAME = [ 'Closed', 'Open', 'Masked', 'Tampered', 'Shorted' ]   # state name for triple-biased alarm sensor
+
+OPTIONS_NAMES = [ 'A', 'B', 'DIVIDER', 'FUNCTION' ]
+
+HA_NAMES = [ 'p', 'device_class', 'unit_of_measurement', 'payload_on', 'payload_off', 'min', 'max', 'step', 'options', 'icons' ]        
 
 DCMD_IN_EVENTS={
         "NONE":     0,

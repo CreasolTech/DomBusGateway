@@ -8,7 +8,7 @@
 # Dombus buses (1 or more serial RS485 buses attached to DomBus modules
 buses = {
     1: { 'serialPort': '/dev/ttyUSB0', },
-    # 2: { 'serialPort': '/dev/ttyUSB1', },
+    2: { 'serialPort': '/dev/ttyUSB1', },
 }
 
 # MQTT parameters: set mqttEnabled = 0 to disable this feature
