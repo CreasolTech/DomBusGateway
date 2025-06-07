@@ -6,6 +6,7 @@
 #debugLevel = (DB.LOG_DEBUG | DB.LOG_DUMPRX | DB.LOG_DUMPTX | DB.LOG_DUMPDCMD | DB.LOG_MQTTRX | DB.LOG_MQTTTX)
 
 # Dombus buses (1 or more serial RS485 buses attached to DomBus modules
+# Please read dombusgateway_conf.py to know how to make serial devices static, unchangeable at reboot        
 buses = {
     1: { 'serialPort': '/dev/ttyUSB0', },
     2: { 'serialPort': '/dev/ttyUSB1', },
