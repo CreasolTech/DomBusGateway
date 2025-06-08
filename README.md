@@ -31,9 +31,9 @@ DomBus modules equipped with Modbus firmware can be used with:
 
 ### For HomeAssistant and OpenHAB, is it better DomBus + DomBusGateway, or Modbus?
 
-DomBus + DomBusGateway implementation is simpler, because all devices/entities are created. It's a must in case that DCMD, pushbuttons, alarm sensors and counters are needed.
+**DomBus + DomBusGateway** implementation is simpler, because **all devices/entities are created automatically**. It's a must in case that DCMD, pushbuttons, alarm sensors and counters are needed.
 
-Modbus can be used for relay modules, EVSE module (to make your own electric vehicle charging wallbox), Dual axis solar tracker. It's not recommended in case that pushbuttons, alarm sensors and counters have to be used.
+Modbus may be used for relay modules, EVSE module (to make your own electric vehicle charging wallbox), Dual axis solar tracker. **Modbus is not recommended in case that pushbuttons, alarm sensors and counters have to be used**, because Modbus is a master-slave protocol so the controller have to poll continuosly to get input status, introducing delays.
 
 ### Example: DomBusEVSE module used to make a Smart Wallbox with Home Assistant
 
@@ -46,11 +46,11 @@ Then it's possible to arrange entities in a custom dashboard as shown below:
 
 ## How does DomBusGateway work?
 
-Once executed, using the command _python3 dombusgateway.py &_ , it opens one or more serial ports connected to DomBus modules (to get a reliable large network, it's possible to divide the DomBus network in trunks with 20-30 modules/each, or divide the building by floors/zones). It's also possible to use WiFi/LAN RS485 modules that provide a virtual serial interface, to get a wireless connection between the main controller where DomBusateway runs, and RS485 port physically connected to the DomBus modules. 
+Once executed, using the command _python3 dombusgateway.py &_ , it opens **one or more serial ports connected to DomBus modules** (to get a reliable large network, it's possible to divide the DomBus network in trunks with 20-30 modules/each, or divide the building by floors/zones). It's also possible to use **WiFi/LAN RS485 modules that provide a virtual serial interface**, to get a wireless connection between the main controller where DomBusateway runs, and RS485 port physically connected to the DomBus modules. 
 
-If MQTT is enabled, it opens a connection to the MQTT broker to exchange data (sending device states and reading command from the domotic controller).
+If MQTT is enabled, it **opens a connection to the MQTT broker** to exchange data (sending device states and reading command from the domotic controller).
 
-If TELNET port is enabled, the user can connect DomBusGateway to show the network of modules and set configuration parameters for each module. DomBus modules usually have configurable I/Os, for example a I/O should be configured as digital input, analog input, counter, energy counter, and so on, and this configuration can be done by Telnet.
+If TELNET port is enabled, **the user can connect DomBusGateway by Telnet to check the network of modules and set configuration parameters for each module**. DomBus modules usually have configurable I/Os, for example a I/O should be configured as digital input, analog input, counter, energy counter, and so on, and this configuration can be done by Telnet.
 
 **The software is still experimental, in development stage**
 
