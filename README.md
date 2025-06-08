@@ -35,7 +35,10 @@ DomBus + DomBusGateway implementation is simpler, because all devices/entities a
 
 Modbus can be used for relay modules, EVSE module (to make your own electric vehicle charging wallbox), Dual axis solar tracker. It's not recommended in case that pushbuttons, alarm sensors and counters have to be used.
 
+### Example: DomBusEVSE module used to make a Smart Wallbox with Home Assistant
 
+![HomeAssistant Dashboard for the Home Made Wallbox using DomBusEVSE module](https://images.creasol.it/creDomBusEVSE_dashboard3.webp)
+		
 
 ## How does DomBusGateway work?
 

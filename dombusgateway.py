@@ -454,6 +454,7 @@ class DomBusDevice():
                     elif self.port >= 0x100 and self.port < 0x1000:
                         # send DB.CMD_CONFIG, port (port&0x7f), DB.SUBCMD_SETx (port>>8), 16bit value
                         buses[self.busID]['protocol'].txQueueAddConfig16(self.port & 0x7f, self.port >> 8, value)
+                    self.updateFromBus(DB.UPDATE_VALUE) # Send back value to update HA
 
 
         log(DB.LOG_DEBUG, "Call send()...")
