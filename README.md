@@ -119,9 +119,9 @@ Software is written by Creasol, https://www.creasol.it with the valuable help of
 Below a list of modules, produced in Italy by Creasol, designed for high reliability and optimized for very very low power consumption.
 
 Our industrial and home automation modules are designed to be
-* very low power (**10÷15mW with relays OFF**)
-* reliable (**no disconnections**)
-* wired network (bus) (**no radiofrequency interference, no battery to replace**).
+* very low power &rArr; **10÷15mW with relays OFF**
+* reliable &rArr; **no disconnections**
+* wired network (bus) &rArr; **no radiofrequency interference, no battery to replace**
 
 Modules are available in two version:
 1. with **DomBus proprietary protocol**, suitable for every type of DomBus modules, working with [Domoticz](https://www.domoticz.com) by using the Creasol DomBus plugin, and [Home Assistant](https://www.home-assistant.io), [OpenHAB](https://www.openhab.org), [Node-RED](https://nodered.org) ... by using the [DomBusGateway software, a DomBus 2 MQTT-AutoDiscovery interface](https://www.creasol.it/DomBusGateway)
