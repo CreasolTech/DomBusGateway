@@ -114,16 +114,23 @@ Software is written by Creasol, https://www.creasol.it with the valuable help of
 
 ## Creasol DomBus modules
 
-Below a list of modules, produced in Europe by Creasol, designed for Domoticz to be reliable and optimized for very very low power consumption.
+Below a list of modules, produced in Italy by Creasol, designed for high reliability and optimized for very very low power consumption.
 
 Our industrial and home automation modules are designed to be
-* very low power (**around 10mW with relays OFF**)
+* very low power (**10÷15mW with relays OFF**)
 * reliable (**no disconnections**)
-* bus connected (**no radiofrequency interference, no battery to replace**).
+* wired network (bus) (**no radiofrequency interference, no battery to replace**).
 
 Modules are available in two version:
-1. with **DomBus proprietary protocol**, working with [Domoticz](https://www.domoticz.com) only
-2. with **Modbus standard protocol**, working with [Home Assistant](https://www.home-assistant.io), [OpenHAB](https://www.openhab.org), [Node-RED](https://nodered.org)
+1. with **DomBus proprietary protocol**, suitable for every type of DomBus modules, working with [Domoticz](https://www.domoticz.com) by using the Creasol DomBus plugin, and [Home Assistant](https://www.home-assistant.io), [OpenHAB](https://www.openhab.org), [Node-RED](https://nodered.org) ... by using the [DomBusGateway software, a DomBus 2 MQTT-AutoDiscovery interface](https://www.creasol.it/DomBusGateway)
+2. with **Modbus standard protocol**, suitable for relays modulules, EVSE and Dual Axis solar tracker, working with almost any building automation system supporting Modbus
+
+What version is the best?
+
+**Modbus** is a standard protocol Master/Slave: the controller must poll each module to get its status, so it's **not suitable to manage inputs and counters that change frequently**, but can be used to manage relay outputs or read inputs status every 2-5s
+
+**DomBus** is a proprietary multi-master protocol where **each module is able to initiate the communication with the master** to notify, for example, an input change, with a short latency (<100ms) that permits to **manage alarm sensors in a reliable way**. Also, DomBus supports the so-called DCMD, **commands exchanged between modules as KNX does**, so it's possible to program simple automations that work between modules even if the domotic controller is OFF (for example, short pulse on button to toggle a light ON/OFF, 1s pulse to open the garage door, 2s pulse to turn OFF some lights, ...)
+
 
 [Store website](https://store.creasol.it/domotics) - [Information website](https://www.creasol.it/domotics)
 
