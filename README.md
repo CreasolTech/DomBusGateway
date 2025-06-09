@@ -107,7 +107,9 @@ Software is written by Creasol, https://www.creasol.it with the valuable help of
 *
 
 
+# Special thanks to:
 
+* rezzA, for debugging
 
 
 ***
