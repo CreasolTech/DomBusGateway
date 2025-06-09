@@ -108,6 +108,7 @@ class DomBusDevice():
         self.counterValue = 0   # counter value
         self.counterTime = 0    # last time a pulse was received (in ms)
         self.energy = 0         # energy in kWh
+        self.lastValue = 0
         self.lastValueHA = 0    # last published value
         self.lastEnergy = 0     # last published energy
         self.lastValueUpdate = 0    # last time that value has been published
@@ -1039,80 +1040,36 @@ class DomBusProtocol(asyncio.Protocol):
 
                                     elif cmdLen == 3 or cmdLen == 4:
                                         value = arg*256 + arg2    # 16 bit value
-                                        """ TODO: NTC 3950
-                                        if d.Type==DB.PORTTYPE[DB.PORTTYPE_SENSOR_TEMP] and value!=0:
-                                            if 'function' in d.Options:
-                                                Ro=10000.0  # 20230703: float (was int)
-                                                To=25.0
-                                                temp=0.0  #default temperature # 20230703: float (was int)
-                                                if (d.Options['function']=='3950'):
-                                                    #value=0..65535
-                                                    beta=3950
-                                                    if (value==65535): value=65534  #Avoid division by zero
-                                                    r=value*Ro/(65535-value)
-                                                    temp=math.log(r / Ro) / beta      # log(R/Ro) / beta
-                                                    temp+=1.0/(To + 273.15)
-                                                    temp=round((1.0/temp)-273.15, 2)
-                                            else:
-                                                temp=round(value/10.0-273.1,2)
-                                                #Log(LOG_DEBUG,"Temperature: value="+str(value)+" temp="+str(temp))
-
-                                            # compute the averaged temperature and save it in d.Options[]
-                                            if 'avgTemp' in d.Options:
-                                                avgTemp=float(d.Options['avgTemp'])
-                                            else:
-                                                avgTemp=temp
-                                            if abs(avgTemp-temp)>=1.5:
-                                                Log(LOG_WARN,f"Temperature warning: Name={d.Name} temp={temp} avgTemp={avgTemp} diff={round(temp-avgTemp,1)}")
-                                            Log(LOG_DEBUG,f"Name={d.Name} temp={temp} avgTemp={avgTemp} diff={round(temp-avgTemp,1)} value={value}")
-                                            temp=(avgTemp*5+temp)/6
-                                            #Log(LOG_DEBUG,"tempDiff<1 => temp=(avgTemp*5+temp)/6="+str(temp))
-                                            d.Options['avgTemp']=str(round(temp,2))   #save current avg value, with 2 digit precision
-
-                                            #Now manage A and B
-                                            v=getOpt(d,"B=")
-                                            b=float(v) if (v!="false") else 0
-                                            value=round(temp+b, 1)
-                                        elif (d.Type==DB.PORTTYPE[DB.PORTTYPE_SENSOR_HUM]):
-                                            hum=int(value/10)
-                                            if (hum>5 and d.nValue!=hum):
-                                                d.Update(nValue=hum, sValue=HRstatus(hum))
-                                        elif d.Type==85: # rain meter
-                                            updateCounter(Devices, d, value, 0)
-                                        elif (d.Type==243): #distance, voltage, frequency, power factor, watt, ...
-                                            if (d.SubType==29): #kWh => signed power
-                                                Value=value
-                                                if (value&0x8000): Value=value-65536
-                                            else:
-                                                #extract A and B, if defined, to compute the right value VALUE=A*dombus_value+B
-                                                v=getOpt(d,"A=")
-                                                a=float(v) if (v!="false") else 1
-                                                v=getOpt(d,"B=")
-                                                b=float(v) if (v!="false") else 0
-                                                Value=a*value+b
-
-                                        """
+                                        if d.ha['p'] == 'sensor' and 'device_class' in d.ha:
+                                            if d.ha['device_class'] == 'temperature' and value != 0:
+                                                if 'FUNCTION' in d.options:
+                                                    Ro=10000.0  # 20230703: float (was int)
+                                                    To=25.0
+                                                    temp=0.0  #default temperature # 20230703: float (was int)
+                                                    if (d.options['function']=='3950'):
+                                                        #value=0..65535
+                                                        beta=3950
+                                                        if value == 65535: value=65534  #Avoid division by zero
+                                                        r = value * Ro / (65535 - value)
+                                                        temp = math.log(r / Ro) / beta      # log(R/Ro) / beta
+                                                        temp += 1.0 / (To + 273.15)
+                                                        temp = (1.0 /temp)-273.15, 2
+                                                else:
+                                                    temp = value / 10.0 - 273.1
+                                                
+                                                # compute the averaged temperature and save it in d.Options[]
+                                                if abs(d.lastValue - temp)<1.5:
+                                                    # compute the average value
+                                                    temp = (d.lastValue*5 + temp) / 6
+                                                value = round(temp, 1)
+                                                    
                                     elif cmdLen == 5 or cmdLen == 6:
                                         value = arg*256 + arg2
                                         value2 = arg3*256 + arg4
                                         if d.portType == DB.PORTTYPE_IN_COUNTER:
                                             counterValue = value2   # pass value and value2 to updateFromBus() that will compute the current power
-                                        """
-                                        #temp+hum?
-                                        if (d.Type==DB.PORTTYPE[DB.PORTTYPE_SENSOR_TEMP_HUM]):
-                                            temp=round(value/10.0-273.1,1)
-                                            hum=int(value2/10)
-                                            stringval=str(float(temp))+";"+str(hum)+";"+HRstatus(hum)
-                                            #Log(LOG_DEBUG,"TEMP_HUM: nValue="+str(temp)+" sValue="+stringval)
-                                            if (temp>-50 and hum>5 and d.sValue!=stringval):
-                                                d.Update(nValue=int(temp), sValue=stringval)
-                                            #self.txQueueAdd(frameAddr,CMD_SET,5,CMD_ACK,port,[arg1,arg2,arg3,arg4,0],1,1)
-                                            self.txQueueAdd(frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
-                                        elif d.Type==85: # rain meter
-                                            updateCounter(Devices, d, value, value2)
-                                        elif (d.Type==243):
-                                            updateCounter(Devices, d, value, value2)
-                                        """    
+
+                                    
                                     elif cmdLen == 7 or cmdLen == 8:
                                         # transmitted power (int16) + energy (uint32)
                                         value = arg*256 + arg2
@@ -1121,9 +1078,13 @@ class DomBusProtocol(asyncio.Protocol):
                                         if d.portType == DB.PORTTYPE_CUSTOM and (d.portOpt == DB.PORTOPT_IMPORT_ENERGY or d.portOpt == DB.PORTOPT_EXPORT_ENERGY): #kWh
                                             #value=Watt, signed
                                             #value2=N*10Wh
+                                            log(DB.LOG_ERR, f"ENERGY: Dev={d.devIDname}, value={value:04x}, value2={value2:08x}")  #DEBUG
                                             if (value&0x8000):
-                                                value=value-65536
+                                                value=value-65536   # negative power
+                                            if (value2 & 0x80000000):
+                                                value2 = value2 - 0x100000000   # negative energy
                                             counterValue = value2 / 100     # value2 was in 10Wh unit => convert to kWh
+                                            log(DB.LOG_ERR, f"ENERGY2: Dev={d.devIDname}, value={value}, counterValue={counterValue}")  #DEBUG
                                     # update device and send ack
                                     self.txQueueAdd(self.frameAddr, cmd, 2, DB.CMD_ACK, port, [ arg ], 1, 1)
                                     d.updateFromBus(DB.UPDATE_VALUE, value, counterValue) # Energy in Wh -> kWh
