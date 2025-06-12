@@ -37,11 +37,13 @@ Modbus may be used for relay modules, EVSE module (to make your own electric veh
 
 ### Example: DomBusEVSE module used to make a Smart Wallbox with Home Assistant
 
-Using DomBusGateway software, Home Assistant is able to read automatically all entities of the DomBusEVSE module: MQTT integration have to be enabled, of course!
+Using DomBusGateway software, Home Assistant is able to automatically create, read and manage all entities of the DomBusEVSE module: MQTT integration have to be enabled, of course!
 
 Then it's possible to arrange entities in a custom dashboard as shown below:
 
 ![HomeAssistant Dashboard for the Home Made Wallbox using DomBusEVSE module](https://images.creasol.it/creDomBusEVSE_dashboard3.webp)
+
+More information about the DomBusEVSE module, that can be used to make a home made wallbox working with HomeAssistant, NodeRED, OpenHAB, Domoticz, can be found at https://www.creasol.it/EVSE and https://store.creasol.it
 		
 
 ## How does DomBusGateway work?
