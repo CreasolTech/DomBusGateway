@@ -86,7 +86,7 @@ PORTOPT_PULLUP=0x0002           #pullup enabled
 PORTOPT_PULLDOWN=0x0004         #pulldown enabled
 #.....
 #note: since version
-PORTOPT_SELECTOR=0x0002         #Custom port configured as a selection switch to show/set different values
+PORTOPT_SELECT=0x0002         #Custom port configured as a selection switch to show/set different values
 PORTOPT_DIMMER=0x0004           #Dimmer slide
 PORTOPT_LATCHING_RELAY=0x0008   #Latching relay, managed as normal On/Off switch
 PORTOPT_EV3PSELECT=0x00fe     #Relay 2 of EVSE module used to enable 3phase 

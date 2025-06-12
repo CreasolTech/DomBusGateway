@@ -12,6 +12,7 @@ import serial_asyncio
 if mqtt['enabled'] != 0:
     from aiomqtt import Client as MQTTClient
     import paho.mqtt.client as MQTTpaho
+    from paho.mqtt.subscribeoptions import SubscribeOptions
 
 import os
 from pathlib import Path
@@ -113,7 +114,7 @@ class DomBusDevice():
         self.lastEnergy = 0     # last published energy
         self.lastValueUpdate = 0    # last time that value has been published
         self.lastEnergyUpdate = 0   # last time that energy has been published
-        self.lastPortType = 0
+        self.lastPortType = self.portType
 
         self.setTopics(self.ha['p'], "")  # Set self.topic and self.topic2
 
@@ -215,7 +216,7 @@ class DomBusDevice():
             else:
                 self.valueHA = 'Off' if self.value == 0 else 'On'
             
-    def updateFromBus(self, what, value:int = None, counterValue:int = None):
+    def updateFromBus(self, what, value:int = None, counterValue:int = None, configOptions:str = None):
         """ Data received from bus: update device and send command to MQTT, ..."""
         global manager
         self.lastUpdate=int(time.time())  # LastUpdate = number of seconds since epoch
@@ -256,9 +257,10 @@ class DomBusDevice():
                 if self.portType != DB.PORTTYPE_SENSOR_TEMP_HUM and self.portType != DB.PORTTYPE_OUT_LEDSTATUS:    # do not add TEMP+HUM device
                     # send data by MQTT only if it changed, or every publishInterval
                     if self.valueHA != self.lastValueHA or (self.lastUpdate - self.lastValueUpdate) > mqtt['publishInterval']:
-                        self.lastValueHA = self.valueHA; self.lastValueUpdate = self.lastUpdate
                         payload = self.valueHA    # message = ON
                         manager.mqttPublish(self.topic + '/state', payload)
+                        # self.lastValueHA = self.valueHA MUST BE CONFIRMED BY UPDATE_ACK
+                        self.lastValueUpdate = self.lastUpdate
 
                     # if devIDname2 exists => transmit energy value (good also for PORTTYPE_SENSOR_ALARM
                     if self.devIDname2 != "" and (self.energy != self.lastEnergy or (self.lastUpdate - self.lastEnergyUpdate) > mqtt['publishInterval']):
@@ -279,18 +281,22 @@ class DomBusDevice():
             if mqtt['enabled'] != 0:
                 # send state update to the controller 
                 if self.portType != DB.PORTTYPE_SENSOR_TEMP_HUM and self.portType != DB.PORTTYPE_OUT_LEDSTATUS:    # do not add TEMP+HUM device
-                    payload = self.valueHA    # message = ON
-                    manager.mqttPublish(self.topic + '/state', payload)
+                    if self.valueHA != self.lastValueHA or (self.lastUpdate - self.lastValueUpdate) > mqtt['publishInterval']:
+                        payload = self.valueHA    # message = ON
+                        manager.mqttPublish(self.topic + '/state', payload)
+                        self.lastValueHA = self.valueHA; self.lastValueUpdate = self.lastUpdate
                         
 
         if what & DB.UPDATE_CONFIG:
             if mqtt['enabled'] != 0:
                 # Create device by MQTT_AD
                 if self.portType != DB.PORTTYPE_SENSOR_TEMP_HUM and self.portType != DB.PORTTYPE_OUT_LEDSTATUS:    # do not add TEMP+HUM device
-                    if self.portType != self.lastPortType and self.lastTopicConfig != "":
-                        # portType changed => remove previous entity by sending config topic with empty payload
+                    if configOptions == 'reset' or (self.portType != self.lastPortType and self.lastTopicConfig != ""):
+                        # reset request, or portType changed => remove previous entity by sending config topic with empty payload
+                        # log(DB.LOG_DEBUG,f'configOptions={configOptions}. self.portType={self.portType}, self.lastPortType={self.lastPortType}, self.lastTopicConfig={self.lastTopicConfig}')
                         log(DB.LOG_DEBUG,f'Removing old entity, topic={self.lastTopicConfig}, payload=""')
                         manager.mqttPublish(self.lastTopicConfig, "")
+                        self.lastPortType = self.portType
                         if self.lastTopic2Config != "":
                             # portType changed => remove previous entity by sending config topic with empty payload
                             log(DB.LOG_DEBUG,f'Removing old associated entity, topic={self.lastTopic2Config}, payload=""')
@@ -454,7 +460,7 @@ class DomBusDevice():
                         buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_SET, 2, 0, self.port, [value], DB.TX_RETRY, 1)
                     elif self.port >= 0x100 and self.port < 0x1000:
                         # send DB.CMD_CONFIG, port (port&0x7f), DB.SUBCMD_SETx (port>>8), 16bit value
-                        buses[self.busID]['protocol'].txQueueAddConfig16(self.port & 0x7f, self.port >> 8, value)
+                        buses[self.busID]['protocol'].txQueueAddConfig16(self.frameAddr, self.port & 0x7f, self.port >> 8, value)
                     self.updateFromBus(DB.UPDATE_VALUE) # Send back value to update HA
 
 
@@ -494,101 +500,101 @@ class DomBusDevice():
         if 'ADDR' in options and options['ADDR']>0 and options['ADDR']<248:
             Log(DB.LOG_INFO, f"Send command to change modbus device address to {options['ADDR']}")
             # proto.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, self.port, [DB.SUBCMD_SET, (newModbusAddr>>8), (newModbusAddr&0xff)], DB.TX_RETRY, 1)    #EVSE: until 2023-04-24 port must be replaced with port+5 to permit changing modbus address 
-            proto.txQueueAddConfi16(self.port, DB.SUBCMD_SET, options['ADDR'])    #EVSE: until 2023-04-24 port must be replaced with port+5 to permit changing modbus address 
+            proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET, options['ADDR'])    #EVSE: until 2023-04-24 port must be replaced with port+5 to permit changing modbus address 
             proto.send()    # Transmit
 
         if cal and cal < 65536: # Transmit calibration or INIT parameter
-            proto.txQueueAddConfig16(self.port, DB.SUBCMD_CALIBRATE, cal)   
+            proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_CALIBRATE, cal)   
             proto.send()    # Transmit
         
         parName = 'PAR1'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET1, parValue)
+            proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET1, parValue)
         parName = 'PAR2'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET2, parValue)
+            proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET2, parValue)
         parName = 'PAR3'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET3, parValue)
+            proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET3, parValue)
         parName = 'PAR4'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET4, parValue)
+            proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET4, parValue)
         proto.send()    # Transmit
         parName = 'PAR5'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET5, parValue)
+            proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET5, parValue)
         proto.send()    # Transmit
         parName = 'PAR6'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET6, parValue)
+            proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET6, parValue)
         proto.send()    # Transmit
         parName = 'PAR7'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET7, parValue)
+            proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET7, parValue)
         proto.send()    # Transmit
         parName = 'PAR8'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET8, parValue)
+            proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET8, parValue)
         proto.send()    # Transmit
         parName = 'PAR9'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET9, parValue)
+            proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET9, parValue)
         proto.send()    # Transmit
         parName = 'PAR10'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET10, parValue)
+            proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET10, parValue)
         proto.send()    # Transmit
         parName = 'PAR11'; 
         if parName in self.options and self.options[parName] < 65536:
             parValue = self.options[parName]
-            proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET112, parValue)
+            proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET112, parValue)
         proto.send()    # Transmit
 
         if 'EV Mode' in self.portName:
             parName = 'EVMAXCURRENT'; 
             if parName in self.options and self.options[parName] >= 3 and self.options[parName] <= 36:
-                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET1, options[parName])
+                proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET1, options[parName])
             parName = 'EVMAXPOWER'; 
             if parName in self.options and self.options[parName] >= 1000 and self.options[parName] <= 25000:
-                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET2, options[parName])
+                proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET2, options[parName])
             parName = 'EVSTARTPOWER'; 
             if parName in self.options and self.options[parName] >= 800 and self.options[parName] <= 25000:
-                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET3, options[parName])
+                proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET3, options[parName])
             parName = 'EVSTOPTIME'; 
             if parName in self.options and self.options[parName] >= 5 and self.options[parName] <= 600:
-                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET4, options[parName])
+                proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET4, options[parName])
             proto.send()
             parName = 'EVAUTOSTART'; 
             if parName in self.options and self.options[parName] >= 0 and self.options[parName] <= 2:
-                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET5, options[parName])
+                proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET5, options[parName])
             parName = 'EVMAXPOWER2'; 
             if parName in self.options and self.options[parName] >= 0 and self.options[parName] <= 25000:
-                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET6, options[parName])
+                proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET6, options[parName])
             parName = 'EVPOWERTIME'; 
             if parName in self.options and self.options[parName] >= 0 and self.options[parName] <= 43200:
-                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET7, options[parName])
+                proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET7, options[parName])
             parName = 'EVPOWERTIME2'; 
             if parName in self.options and self.options[parName] >= 0 and self.options[parName] <= 43200:
-                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET8, options[parName])
+                proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET8, options[parName])
             parName = 'EVWAITTIME'; 
             if parName in self.options and self.options[parName] >= 3 and self.options[parName] <= 60:
-                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET9, options[parName])
+                proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET9, options[parName])
             parName = 'EVMETERTYPE'; 
             if parName in self.options and self.options[parName] >= 0 and self.options[parName] <= 1:
-                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET10, options[parName])
+                proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET10, options[parName])
             parName = 'EVMINVOLTAGE'; 
             if parName in self.options and self.options[parName] >= 0 and self.options[parName] <= 500:
-                proto.txQueueAddConfig16(self.port, DB.SUBCMD_SET11, options[parName])
+                proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET11, options[parName])
             proto.send()
      
 
@@ -898,7 +904,7 @@ class DomBusProtocol(asyncio.Protocol):
                                                 if portType != DB.PORTTYPE_CUSTOM or portOpt >= 2:
                                                     # do not enable CUSTOM device with DB.PORTOPT not specified (ignore it!)
                                                     if portType == DB.PORTTYPE_CUSTOM:
-                                                        if portOpt == DB.PORTOPT_SELECTOR:
+                                                        if portOpt == DB.PORTOPT_SELECT:
                                                             ha['p'] = 'select'  # platform
                                                             if "S.On" in portName:
                                                                 ha['options'] = ['Off', 'On']
@@ -995,12 +1001,14 @@ class DomBusProtocol(asyncio.Protocol):
                             if self.devID in Devices:
                                 # I sent a SET command, and received the ACK
                                 d = Devices[self.devID]
-                                if d.portType & (DB.PORTTYPE_OUT_DIGITAL | DB.PORTTYPE_OUT_RELAY_LP | DB.PORTTYPE_OUT_DIMMER | DB.PORTTYPE_OUT_FLASH | DB.PORTTYPE_OUT_ANALOG):
+                                if (d.portType & (DB.PORTTYPE_OUT_DIGITAL | DB.PORTTYPE_OUT_RELAY_LP | DB.PORTTYPE_OUT_DIMMER | DB.PORTTYPE_OUT_FLASH | DB.PORTTYPE_OUT_ANALOG)) or (d.portType == DB.PORTTYPE_CUSTOM and (d.portOpt==DB.PORTOPT_SELECT or d.portOpt == DB.PORTOPT_DIMMER)):
                                     # Update device state taking ACK value (1 byte)
+                                    # UPDATE_ACK is also used to confirm a "set" command from HA:  HA sends a set command, and get back a state that confirm the new status
                                     d.value = arg
                                     d.value2valueHA()   # update valueHA 
                                     # log(DB.LOG_DEBUG, f"Received SET+ACK: value={d.value} valueHA={d.valueHA}")
-                                d.updateFromBus(DB.UPDATE_ACK, 0)
+                                    d.updateFromBus(DB.UPDATE_ACK, 0)
+                                # TODO: update value by using ACK also for other port types?
                     else:
                         #cmdAck==0 => decode command from slave module
                         if src != 0xffff and dst == 0:
@@ -1062,7 +1070,11 @@ class DomBusProtocol(asyncio.Protocol):
                                                     # compute the average value
                                                     temp = (d.lastValue*5 + temp) / 6
                                                 value = round(temp, 1)
-                                                    
+                                            elif d.ha['device_class'] == 'power':
+                                                # EV GRID, transmitting only power (not energy)
+                                                # check if value is negative
+                                                if (value&0x8000):
+                                                    value=value-65536   # negative power
                                     elif cmdLen == 5 or cmdLen == 6:
                                         value = arg*256 + arg2
                                         value2 = arg3*256 + arg4
@@ -1078,13 +1090,11 @@ class DomBusProtocol(asyncio.Protocol):
                                         if d.portType == DB.PORTTYPE_CUSTOM and (d.portOpt == DB.PORTOPT_IMPORT_ENERGY or d.portOpt == DB.PORTOPT_EXPORT_ENERGY): #kWh
                                             #value=Watt, signed
                                             #value2=N*10Wh
-                                            log(DB.LOG_ERR, f"ENERGY: Dev={d.devIDname}, value={value:04x}, value2={value2:08x}")  #DEBUG
                                             if (value&0x8000):
                                                 value=value-65536   # negative power
                                             if (value2 & 0x80000000):
                                                 value2 = value2 - 0x100000000   # negative energy
                                             counterValue = value2 / 100     # value2 was in 10Wh unit => convert to kWh
-                                            log(DB.LOG_ERR, f"ENERGY2: Dev={d.devIDname}, value={value}, counterValue={counterValue}")  #DEBUG
                                     # update device and send ack
                                     self.txQueueAdd(self.frameAddr, cmd, 2, DB.CMD_ACK, port, [ arg ], 1, 1)
                                     d.updateFromBus(DB.UPDATE_VALUE, value, counterValue) # Energy in Wh -> kWh
@@ -1119,9 +1129,10 @@ class DomBusProtocol(asyncio.Protocol):
         else:
             Modules[self.frameAddr][DB.LASTRX] = time.time()
 
-    def txQueueAddConfig16(self, port, subcmd, value):
+    def txQueueAddConfig16(self, frameAddr, port, subcmd, value):
         """Send a CMD_CONFIG with a SUBCMD and 16bit value"""
-        self.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, port, [subcmd, ((value>>8)&0xff), (value&0xff)], DB.TX_RETRY, 1)
+        log(DB.LOG_DEBUG,f"Calling txQueueAdd({self.frameAddr:06x}, {DB.CMD_CONFIG}, 4, 0, {port}, [{subcmd}, {((value>>8)&0xff)}, {(value&0xff)}], DB.TX_RETRY, 1)")
+        self.txQueueAdd(frameAddr, DB.CMD_CONFIG, 4, 0, port, [subcmd, ((value>>8)&0xff), (value&0xff)], DB.TX_RETRY, 1)
 
     def txQueueAdd(self, frameAddr, cmd,cmdLen,cmdAck,port,args,retries,now):
         #add a command in the tx queue for the specified module (frameAddr)
@@ -1311,7 +1322,7 @@ class DomBusManager:
                 'help': 'Print this help. Type "help CMD" to get info about the specified cmd' },
             'refresh':   {
                 'cmd': self.cmd_refresh,
-                'help': 'Send list of all devices to the domotic controller',   },
+                'help': 'Send list of all devices to the domotic controller\r\nWith command "refresh reset" all DomBus entities are removed and created as new\r\n so you can loose configuration, entity name, ...',   },
             'showbus':  { 
                 'cmd': self.cmd_showbus,
                 'help': 'Show the list of available buses\r\nSpecify a bus to show modules attached to that bus, e.g. "showbus 1"' }, 
@@ -1380,13 +1391,15 @@ class DomBusManager:
     async def _mqttSubscribe(self):
         """Subscribe to all topics asynchronously."""
         topics = f'{mqtt["topic"]}/#'
-        await mqtt['client'].subscribe(topics, options={"no_local": True})  # Subscribe to all topics
+        options = SubscribeOptions(noLocal=True)
+        await mqtt['client'].subscribe(topics, options=options)  # Subscribe to all topics
         log(DB.LOG_INFO, f"Subscribed to topics {topics}")
 
         async for message in mqtt['client'].messages:
             if str(message.topic)[-6:] != '/state' and '"_sender": "dbp"' not in message.payload.decode():  # ignore msg generated by me, and state messages (only commands should be received)
                 log(DB.LOG_MQTTRX, f"Received on {message.topic}: {message.payload.decode()}")
                 # check topic  /dombus/platform/devID/set
+                # check topic  /dombus/platform/devID/state  Off
                 f = str(message.topic).split('/')
                 if len(f)>=4 and f[0] == mqtt['topic']:
 
@@ -1398,7 +1411,9 @@ class DomBusManager:
                     else:
                         log(DB.LOG_MQTTRX, f"Unknown device {devID}")
                 else:
-                    log(DB.LOG_MQTTRX, "received topic not in valid format")
+                    log(DB.LOG_MQTTRX, "Received topic not in valid format")
+#            else:
+#                log(DB.LOG_DEBUG, f"Received ignored msg from {message.topic}: {message.payload.decode()}")
                 
 
     async def _mqttPublishFromQueue(self):
@@ -1499,8 +1514,11 @@ class DomBusManager:
         for dev in dlist:
             d = Devices[dev]
             if (dev >> 16) in Modules:
+                resetReq = None
+                if args and args[0]:
+                    resetReq = args[0]  # refresh reset => send "reset" as 4th parameter to remove previous entity and create a new one
                 writer.write(f'Sending configuration refresh for device {d.devIDname} portType={d.portType:08x} platform={d.ha["p"]}...\r\n'.encode())
-                d.updateFromBus(DB.UPDATE_CONFIG)
+                d.updateFromBus(DB.UPDATE_CONFIG, None, None, resetReq)
                 d.updateFromBus(DB.UPDATE_VALUE, d.value, d.counterValue)
             else:
                 writer.write(f'Skip sending configuration for device {d.devIDname}: module {(dev >> 16):06x} not alive or not received yet!\r\n'.encode())
