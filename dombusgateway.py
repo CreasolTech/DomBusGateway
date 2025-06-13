@@ -303,7 +303,7 @@ class DomBusDevice():
                             manager.mqttPublish(self.lastTopic2Config, "")
                         
                     self.setTopics(self.ha['p'], "")    # update current topic
-                    payload = dict(name = f"{self.portName}", unique_id = 'dombus_' + self.devIDname, command_topic = f"{self.topic}/set", \
+                    payload = dict(name = f"{self.portName}", friendly_name = f"{self.portName}", unique_id = 'dombus_' + self.devIDname, command_topic = f"{self.topic}/set", \
                             state_topic = f"{self.topic}/state", schema = "json")
                     
 
@@ -1508,6 +1508,9 @@ class DomBusManager:
 
     async def cmd_refresh(self, args, writer):
         """Send whole list of devices to the domotic controller"""
+        # cmd_refresh() => send all devices
+        # cmd_refresh(["reset"]) => remove and create again all devices
+        # cmd_refres( args, writer ) => send or recreate all devices with output on telnet session
         dlist = []
         for dev in Devices: # sort by devID
             bisect.insort(dlist, dev)
@@ -1517,11 +1520,13 @@ class DomBusManager:
                 resetReq = None
                 if args and args[0]:
                     resetReq = args[0]  # refresh reset => send "reset" as 4th parameter to remove previous entity and create a new one
-                writer.write(f'Sending configuration refresh for device {d.devIDname} portType={d.portType:08x} platform={d.ha["p"]}...\r\n'.encode())
+                if writer:
+                    writer.write(f'Sending configuration refresh for device {d.devIDname} portType={d.portType:08x} platform={d.ha["p"]}...\r\n'.encode())
                 d.updateFromBus(DB.UPDATE_CONFIG, None, None, resetReq)
                 d.updateFromBus(DB.UPDATE_VALUE, d.value, d.counterValue)
             else:
-                writer.write(f'Skip sending configuration for device {d.devIDname}: module {(dev >> 16):06x} not alive or not received yet!\r\n'.encode())
+                if writer:
+                    writer.write(f'Skip sending configuration for device {d.devIDname}: module {(dev >> 16):06x} not alive or not received yet!\r\n'.encode())
         del dlist            
 
     async def cmd_showbus(self, args, writer):
@@ -1694,7 +1699,7 @@ if __name__ == "__main__":
             # listen to TCP port waiting for connections and commands
             asyncio.create_task(manager.addTelnetServer())
         
-        #await asyncio.sleep(150)  # Terminate in 15 seconds
+        await manager.cmd_refresh(None, None) # Send all devices to HA
         await asyncio.Event().wait()
 
     ############### main ################
