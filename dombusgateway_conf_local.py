@@ -9,8 +9,8 @@
 # Please read dombusgateway_conf.py to know how to make serial devices static, unchangeable at reboot
 
 buses = {
-    1: { 'serialPort': '/dev/ttyUSB0', },
-    2: { 'serialPort': '/dev/ttyUSB1', },
+    1: { 'serialPort': '/dev/ttyUSBdombus1', },
+    2: { 'serialPort': '/dev/ttyUSBdombus2', },
 }
 
 # MQTT parameters: set mqttEnabled = 0 to disable this feature

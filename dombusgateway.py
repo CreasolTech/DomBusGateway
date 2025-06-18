@@ -142,7 +142,6 @@ class DomBusDevice():
         if self.portOpt in DB.PORTOPTS_NAME:
             self.portConf += f',{DB.PORTOPTS_NAME[self.portOpt]}'
 
-        log(DB.LOG_DEBUG, f"setPortConf: options={self.options}")
         for opt in self.options:
             self.portConf += f',{opt}={self.options[opt]}'
 
@@ -256,16 +255,17 @@ class DomBusDevice():
             if mqtt['enabled'] != 0:
                 if self.portType != DB.PORTTYPE_SENSOR_TEMP_HUM and self.portType != DB.PORTTYPE_OUT_LEDSTATUS:    # do not add TEMP+HUM device
                     # send data by MQTT only if it changed, or every publishInterval
-                    if self.valueHA != self.lastValueHA or (self.lastUpdate - self.lastValueUpdate) > mqtt['publishInterval']:
+                    if self.valueHA != self.lastValueHA or (self.lastUpdate - self.lastValueUpdate) >= mqtt['publishInterval']:
                         payload = self.valueHA    # message = ON
                         manager.mqttPublish(self.topic + '/state', payload)
                         # self.lastValueHA = self.valueHA MUST BE CONFIRMED BY UPDATE_ACK
                         self.lastValueUpdate = self.lastUpdate
 
                     # if devIDname2 exists => transmit energy value (good also for PORTTYPE_SENSOR_ALARM
-                    if self.devIDname2 != "" and (self.energy != self.lastEnergy or (self.lastUpdate - self.lastEnergyUpdate) > mqtt['publishInterval']):
+                    if self.devIDname2 != "" and (self.energy != self.lastEnergy or (self.lastUpdate - self.lastEnergyUpdate) >= mqtt['publishInterval']):
                         # a second entity is associated to this
-                        self.lastEnergy = self.energy; self.lastEnergyUpdate = self.lastUpdate
+                        self.lastEnergy = self.energy
+                        self.lastEnergyUpdate = self.lastUpdate
                         if self.portType == DB.PORTTYPE_SENSOR_ALARM:
                             self.energy = int(self.energy)
                             if self.energy > 4: 
@@ -281,7 +281,7 @@ class DomBusDevice():
             if mqtt['enabled'] != 0:
                 # send state update to the controller 
                 if self.portType != DB.PORTTYPE_SENSOR_TEMP_HUM and self.portType != DB.PORTTYPE_OUT_LEDSTATUS:    # do not add TEMP+HUM device
-                    if self.valueHA != self.lastValueHA or (self.lastUpdate - self.lastValueUpdate) > mqtt['publishInterval']:
+                    if self.valueHA != self.lastValueHA or (self.lastUpdate - self.lastValueUpdate) >= mqtt['publishInterval']:
                         payload = self.valueHA    # message = ON
                         manager.mqttPublish(self.topic + '/state', payload)
                         self.lastValueHA = self.valueHA; self.lastValueUpdate = self.lastUpdate

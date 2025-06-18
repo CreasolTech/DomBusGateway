@@ -66,7 +66,8 @@ If TELNET port is enabled, **the user can connect DomBusGateway by Telnet to che
 
 * _dombusgateway_conf.py_: configuration file 
 
-* _dombusgateway_conf_local.py_: configuration file that will never be overwritten from the GitHub repository: this is the right place to store your local configuration
+* _dombusgateway_conf_local.py_: local configuration file with custom configuration: this is the right place to store your local configuration, saving a copy of this file that should be
+restored in case of software update.
 
 * _data/_: directory, created if not existing, where list of DomBus modules and configuration is saved and restored
 
