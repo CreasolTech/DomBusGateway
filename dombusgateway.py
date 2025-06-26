@@ -133,7 +133,36 @@ class DomBusDevice():
 
 
         log(DB.LOG_INFO, f"New device, Bus={self.busID:x}, HWaddr={self.devAddr:04x}, Port={self.port:x}, Type={self.portType:x}{' (' + DB.PORTTYPES_NAME[self.portType] + ')' if self.portType in DB.PORTTYPES_NAME else ''}, Name={self.portName}, platform={self.ha['p']}")
-        
+       
+    def getDevID(self, strValue: str):
+        """Return a devID (0xBBHHHHPPPP) from strValue like '8' or '1234.8' or 2.1234.8"""
+        p = strValue.split('.')
+        pi = []
+        for par in p:
+            try:
+                par = int(par, 16)
+            except Exception as e:
+                log(DB.LOG_ERR, f"Error on string {strValue}, not in the valid format: '8', '123.8' or '2.123.8' specifying bus.addr.port")
+                return None
+            else:
+                if par != 0 and par < 0x10000:
+                    pi.append(par)
+                else:
+                    log(DB.LOG_ERR, f"Error on string {strValue}: bus, address or port must be between 1 and ffff")
+                    return None
+                
+        if len(pi) == 1:    # 8
+            dev = (self.devID & 0xffffff0000) | pi[0]
+        elif len(pi) == 2:  # 123.8
+            dev = (self.busID << 32) | (pi[0] << 16) | pi[1]
+        elif len(pi) == 3:  # 2.123.8
+            dev = (pi[0] << 32) | (pi[1] << 16) | pi[2]
+        else:
+            log(DB.LOG_ERR, f"Error on string {strValue}, not in the valid format: '8', '123.8' or '2.123.8' specifying bus.addr.port")
+            return None
+        return dev
+            
+
     def setPortConf(self):
         """set the self.portConf string specifying device configuration"""
         self.portConf = ''
@@ -143,7 +172,8 @@ class DomBusDevice():
             self.portConf += f',{DB.PORTOPTS_NAME[self.portOpt]}'
 
         for opt in self.options:
-            self.portConf += f',{opt}={self.options[opt]}'
+            if not (opt == 'A' and float(self.options[opt]) == 1) or (opt == 'B' and float(self.options[opt]) == 0): 
+                self.portConf += f',{opt}={self.options[opt]}'
 
     def setTopics(self, platform1, platform2):
         """ Set self.topic, self,topicConfig, self.topic2, self.topic2COnfig """
@@ -250,6 +280,15 @@ class DomBusDevice():
                         self.counterTime = ms
                 elif self.portType == DB.PORTTYPE_SENSOR_ALARM:
                     self.energy = counterValue
+
+                if self.value != 0 and 'OPPOSITE' in self.options:
+                    # OPPOSITE = 'd' => dev = BBHHHH000d; OPPOSITE maybe 1234.b => dev = BB1234000b where B = current busID; OPPOSITE maybe 021234.b => dev = 021234000b
+                    dev = self.getDevID(self.options['OPPOSITE'])
+                    log(DB.LOG_DEBUG, f"OPPOSITE dev = {dev:x}, Devices[dev].value={Devices[dev].value}")
+                    if dev is not None and dev in Devices and (Devices[dev].value != 0 or (self.lastUpdate - Devices[dev].lastValueUpdate) >= mqtt['publishInterval']):
+                        # OPPOSITE is used for import / export pulsed meter: if import meter is counting => export meter is set to 0, and vice versa (cannot get both import and export power)
+                        log(DB.LOG_DEBUG, "OPPOSITE option is set => reset the OPPOSITE entity value")
+                        Devices[dev].updateFromBus(DB.UPDATE_VALUE, 0)
             
             self.value2valueHA()    # set the valueHA according to value
             if mqtt['enabled'] != 0:
@@ -316,7 +355,11 @@ class DomBusDevice():
                     if self.frameAddr in Modules:
                         dev = {} # device
                         dev['identifiers'] = [ self.frameAddr ]
-                        dev['name'] = f"DomBus {self.devAddr:04x}"
+                        if Modules[self.frameAddr][DB.LASTTYPE]:
+                            dev['name'] = Modules[self.frameAddr][DB.LASTTYPE]
+                        else:
+                            dev['name'] = 'DomBus'
+                        dev['name'] += f" {self.devAddr:04x}"
                         if self.busID > 1:
                             dev['name'] += f" on bus {self.busID:x}"
                         dev['mf'] = "Creasol"
@@ -488,6 +531,10 @@ class DomBusDevice():
             self.options = options.copy()
         
         if haOptions:
+            if 'p' in haOptions and 'p' in self.ha and haOptions['p'] != self.ha['p']:
+                # changed platform
+                diff += 8       # entity must be removed and created again
+                self.ha.clear() # remove all options from ha dictionary
             self.ha.update(haOptions)
             diff += 16
 
@@ -598,35 +645,52 @@ class DomBusDevice():
             proto.send()
      
 
-        if 'HWADDR' in options and options['HWADDR']>0 and options['HWADDR']<0xffff:
-            log(DB.LOG_INFO, f"Change module address from {self.devAddr:04x} to {options['HWADDR']:04x}")
-            proto.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, 0, [(options['HWADDR'] >> 8), (options['HWADDR']&0xff), (0-(options['HWADDR'] >> 8)-(options['HWADDR']&0xff)-0xa5)], DB.TX_RETRY,1)
-            proto.send()    # Transmit
-            # Change address to every devices
-            devIDbase = (self.busID<<32) | (options['HWADDR']<<16)    #0xBBNNNN0000
-            for dev in Devices:
-                if (dev & 0xffffff0000) == (self.devID & 0xffffff0000):
-                    d = Devices[dev]
-                    d.devID &= 0x000000ffff
-                    d.devID |= devIDbase
-                    d.frameAddr = devIDbase >> 16
-                    d.devAddr = d.frameAddr & 0xffff
-                    d.devIDname = f"{d.frameAddr:06x}_{d.port:04x}"
-                    if d.devIDname2 != "":
-                        d.devIDname2 = f"{d.frameAddr:06x}_{(d.port+0x80):04x}"
-                    Devices[d.devID] = Devices[self.devID]
-                    del Devices[self.devID]
+        if 'HWADDR' in options:
+            try: 
+                newHwAddr = int(options['HWADDR'], 16)
+            except Exception as e:
+                log(DB.LOG_ERR, f"Invalid address for HWADDR parameter: {options['HWADDR']} must be in hex format, from 1 to ffff")
+            else:
+                if (newHwAddr > 0 and newHwAddr < 0xffff):
+                    log(DB.LOG_INFO, f"Change module address from {self.devAddr:04x} to {newHwAddr:04x}")
+                    proto.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, 0, [(newHwAddr >> 8), (newHwAddr&0xff), (0-(newHwAddr >> 8)-(newHwAddr&0xff)-0xa5)], DB.TX_RETRY,1)
+                    proto.send()    # Transmit
+                    # Change address to every devices
+                    devIDbase = (self.busID<<32) | (newHwAddr<<16)    #0xBBNNNN0000 New devID base
+                    for dev in Devices:
+                        if (dev & 0xffffff0000) == (self.devID & 0xffffff0000):  # current device, with old hwaddr
+                            # Create a new object for this device
+                            devID = devIDbase | (dev & 0xffff)
+                            d = DomBusDevice(devID, Devices[dev].portType, Devices[dev].portOpt, Devices[dev].portName, Devices[dev].options, Devices[dev].haOptions, Devices[dev].dcmd) # Create device object with same configuration as before
+                            Devices[devID] = d
+                            d.value = Devices[dev].value
+                            d.valueHA = Devices[dev].valueHA
+                            d.counterValue = Devices[dev].counterValue
+                            # TODO: send MQTT configuration for the new device?
+                            # send MQTT to remove old device
+                            log(DB.LOG_DEBUG,f'Removing old entity for device={Devices[dev].devIDname}...')
+                            manager.mqttPublish(Devices[dev].lastTopicConfig, "")
+                            if Devices[dev].lastTopic2Config != "":
+                                # portType changed => remove previous entity by sending config topic with empty payload
+                                log(DB.LOG_DEBUG,f'Removing old associated entity for {Devices[dev].devIDname}...')
+                                manager.mqttPublish(Devices[dev].lastTopic2Config, "")
+                            del Devices[dev]    # Remove previous object with old address
 
         if 'A' not in self.options:
             self.options['A'] = 1
         if 'B' not in self.options:
             self.options['B'] = 0
 
+        resetReq = None
+        if diff & 8:
+            # changed entity platform
+            resetReq = "reset"
+            log(DB.LOG_INFO, f"Changed entity platform to {haOptions['p']}")
 
-        if diff & 19:
+        if diff & 27:
             # update HA configuration
             log(DB.LOG_INFO, f'Update configuration to domotic controller for module {self.devIDname}:\r\n  {options}\r\n  {haOptions}')
-            self.updateFromBus(DB.UPDATE_CONFIG)
+            self.updateFromBus(DB.UPDATE_CONFIG, None, None, resetReq)
 
         if value:
             self.updateFromBus(DB.UPDATE_VALUE, value)
@@ -1024,7 +1088,10 @@ class DomBusProtocol(asyncio.Protocol):
                                     self.forceTxStatus() # force transmit output status
                                 else: # port specified: return status for that port
                                     if self.devID in Devices:
-                                        value = Devices[self.devID].value & 0xff    # TODO: manage counter, temperature, and other values 16-32bits
+                                        try:
+                                            value = int(Devices[self.devID].value) & 0xff    # TODO: manage counter, temperature, and other values 16-32bits
+                                        except Exception:
+                                            value = 0
                                         self.txQueueAdd(self.frameAddr, cmd, 2, DB.CMD_ACK, port, [ value ], 1, 1)
                             elif cmd == DB.CMD_SET:
                                 #digital or analog input changed?
@@ -1422,8 +1489,15 @@ class DomBusManager:
             topic, message = await self.loop.run_in_executor(None, self.mqttPublishQueue.get)
             # Publish the message
             log(DB.LOG_MQTTTX, f"Publish to {topic}: {message}")
-            await mqtt['client'].publish(topic, message, qos=1)
-            self.mqttPublishQueue.task_done()
+            try:
+                await mqtt['client'].publish(topic, message, qos=1)
+            except Exception as e:
+                log(DB.LOG_ERR, f"MQTT error while publishing a message: {e}\nRestart MQTT")
+                # Reconnect to MQTT broker
+                await self.mqttDisconnect()
+                await self.add_mqtt()
+            else:
+                self.mqttPublishQueue.task_done()
 
     def mqttPublish(self, topic: str, payload: any):
         """Send message to a queue, to send it asyncronously"""

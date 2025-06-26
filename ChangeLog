@@ -2,6 +2,12 @@ DomBusGateway
 
 Developed by Creasol - https://www.creasol.it/domotics
 
+
+TODO: 
+* periodically update entities for each device
+
+
+
 2025-05-xx Rev 0.1
 First version with initial support to 
 * DomBus

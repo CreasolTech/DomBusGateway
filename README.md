@@ -104,6 +104,18 @@ Telnet CLI permits to:
 ![setport command example](https://images.creasol.it/setport.webp)
 
 
+
+# DomBusEVSE module to build a DIY EV charger
+
+The module is programmed to work, by default, with two energy meters (one to measure the Grid power, and one to measure the EV power, energy, voltage, PF) connected to the 2nd RS485 bus available on the module; as most probably the user already have an energy meter measuring grid power (sometimes included in hybrid solar inverters), it's possible to realize a simple automation that send to the *P0c Grid Power* device the current value of power from the grid, positive when importing energy, negative when exporting. Similarly, for building having a stationary battery, it's good to send to the EVSE module the value *Power_from_the_grid* + *Power_from_the_battery* : in this case, when charging the EV in *Solar* mode, the EVSE module works to have *P0c Grid Power*=0 that means "do not use energy from the grid, nor energy from the stationary battery, but consume only energy from the photovoltaic". The same in case of wind, hydro or other power sources.
+
+In the case that Grid energy meter is not directly connected to the EVSE module, you have to configure *P0c Grid Power* as a number entity, in this way:
+* open a telnet connection with DomBusGateway _telnet localhost 8023_
+* select bus, if needed (default=bus1) _showbus 2_
+* select EVSE module _showmodule ffe3_
+* set port 0c as platform number, with min value = -12000W and max value = 12000W (depending by your solar and contractual power)  _setport c p=number,min=-12000,max=12000
+
+
 # Credits
 Software is written by Creasol, https://www.creasol.it with the valuable help of:
 

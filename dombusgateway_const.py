@@ -189,7 +189,7 @@ PORTOPTS_NAME={
     
 SENSOR_ALARM_NAME = [ 'Closed', 'Open', 'Masked', 'Tampered', 'Shorted' ]   # state name for triple-biased alarm sensor
 
-OPTIONS_NAMES = [ 'A', 'B', 'DIVIDER', 'FUNCTION' ]
+OPTIONS_NAMES = [ 'A', 'B', 'DIVIDER', 'OPPOSITE', 'FUNCTION', 'HWADDR', 'ADDR' ]
 
 HA_NAMES = [ 'p', 'device_class', 'unit_of_measurement', 'payload_on', 'payload_off', 'min', 'max', 'step', 'options', 'icons' ]        
 
