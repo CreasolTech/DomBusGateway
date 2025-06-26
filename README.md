@@ -115,6 +115,27 @@ In the case that Grid energy meter is not directly connected to the EVSE module,
 * select EVSE module _showmodule ffe3_
 * set port 0c as platform number, with min value = -12000W and max value = 12000W (depending by your solar and contractual power)  _setport c p=number,min=-12000,max=12000
 
+Example of an automation for HA that sends (ImportPower - ExportPower) to the *P0c Grid Power* device:
+'''
+- id: '1750798854962'
+  alias: power2wallbox
+  description: 'Sends Grid power value to the wallbox'
+  triggers:
+  - trigger: state
+    entity_id:
+    - sensor.dombus_1201_p07_io7	# Grid import power value (0 while exporting)
+    - sensor.dombus_1201_p08_io8	# Grid export power value (0 while importing)
+  conditions: []
+  actions:
+  - service: number.set_value 
+    target:
+      entity_id: number.dbevse_ffe3_on_bus_2_p0c_grid_power
+    data:
+      value: >
+        {{ (states('sensor.dombus_1201_p07_io7') | float) - (states('sensor.dombus_1201_p08_io8') | float) }}
+  mode: single
+'''  
+
 
 # Credits
 Software is written by Creasol, https://www.creasol.it with the valuable help of:
