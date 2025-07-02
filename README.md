@@ -43,7 +43,7 @@ Then it's possible to arrange entities in a custom dashboard as shown below:
 
 ![HomeAssistant Dashboard for the Home Made Wallbox using DomBusEVSE module](https://images.creasol.it/creDomBusEVSE_dashboard3.webp)
 
-More information about the DomBusEVSE module, that can be used to make a home made wallbox working with HomeAssistant, NodeRED, OpenHAB, Domoticz, can be found at https://www.creasol.it/EVSE and https://store.creasol.it
+More information about the DomBusEVSE module, that can be used to make a home made wallbox working with HomeAssistant, NodeRED, OpenHAB, Domoticz, can be found at https://www.creasol.it/EVSE and https://store.creasol.it . Also, please check the section _DomBusEVSE module to build a DIY EV charger_ below
 		
 
 ## How does DomBusGateway work?
@@ -106,7 +106,7 @@ Telnet CLI permits to:
 
 
 # DomBusEVSE module to build a DIY EV charger
-Wiring diagrams to make the charging station, single phase or three phase, is available at <a href="https://www.creasol.it/EVSE" target="_new">www.creasol.it/EVSE</a>
+Wiring diagrams to make the charging station, single phase or three phase, is available at <a href="https://www.creasol.it/EVSE">www.creasol.it/EVSE</a>
 
 **The EVSE module is programmed to work, by default, with two energy meters** (one to measure the Grid power, and one to measure the EV power, energy, voltage, PF) connected to the 2nd RS485 bus available on the module: in this case the charging station can work independently from the home automation system.
 
