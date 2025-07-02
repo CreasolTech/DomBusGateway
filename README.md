@@ -106,8 +106,7 @@ Telnet CLI permits to:
 
 
 # DomBusEVSE module to build a DIY EV charger
-Wiring diagrams to make the charging station, single phase or three phase, is available at [www.creasol.it/EVSE](https://www.creasol.it/EVSE){target="_new"}
-
+Wiring diagrams to make the charging station, single phase or three phase, is available at <a href="https://www.creasol.it/EVSE" target="_blank">www.creasol.it/EVSE</a>
 
 **The EVSE module is programmed to work, by default, with two energy meters** (one to measure the Grid power, and one to measure the EV power, energy, voltage, PF) connected to the 2nd RS485 bus available on the module: in this case the charging station can work independently from the home automation system.
 
