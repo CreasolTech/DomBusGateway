@@ -172,7 +172,7 @@ class DomBusDevice():
             self.portConf += f',{DB.PORTOPTS_NAME[self.portOpt]}'
 
         for opt in self.options:
-            if not (opt == 'A' and float(self.options[opt]) == 1) or (opt == 'B' and float(self.options[opt]) == 0): 
+            if not ((opt == 'A' and float(self.options[opt]) == 1) or (opt == 'B' and float(self.options[opt]) == 0)): 
                 self.portConf += f',{opt}={self.options[opt]}'
 
     def setTopics(self, platform1, platform2):
@@ -205,7 +205,7 @@ class DomBusDevice():
         """Convert value got from DomBus to a device state compatible with Home Assistant"""
         if self.ha['p'] == 'select':
             self.valueHA = self.ha['options'][int(self.value / 10)]
-        elif (self.portType & (DB.PORTTYPE_OUT_DIGITAL | DB.PORTTYPE_OUT_RELAY_LP | DB.PORTTYPE_OUT_LEDSTATUS | DB.PORTTYPE_IN_AC)):
+        elif (self.portType & (DB.PORTTYPE_OUT_DIGITAL | DB.PORTTYPE_OUT_RELAY_LP | DB.PORTTYPE_OUT_LEDSTATUS | DB.PORTTYPE_IN_AC) or self.ha['p'] == 'switch'):
             self.valueHA = 'OFF' if self.value==0 else 'ON'
         elif (self.portType & (DB.PORTTYPE_IN_TWINBUTTON | DB.PORTTYPE_OUT_BLIND)):
             self.valueHA = 'stopped'
@@ -214,7 +214,7 @@ class DomBusDevice():
             elif self.value == 2 or self.value == 20:
                 self.valueHA = 'opening'
         elif self.portType == DB.PORTTYPE_SENSOR_TEMP:
-            self.valueHA = (self.value - 2731) / 10.0     # DomBusTH sends Kelvin temperature with 0.1°C resolution
+            self.valueHA = self.value     # DomBusTH sends Kelvin temperature with 0.1°C resolution, but self.value already contains the real temperature in Celsius
         elif self.portType == DB.PORTTYPE_SENSOR_HUM:
             self.valueHA = self.value / 10.0         # DomBusTH sends relative humdity with 0.1% resolutiom
         elif self.portType & (DB.PORTTYPE_IN_ANALOG | DB.PORTTYPE_SENSOR_DISTANCE): # send value
@@ -240,7 +240,7 @@ class DomBusDevice():
             
         else:
             if 'device_class' in self.ha and self.ha['device_class'] in ('door','window'):
-                self.valueHA = 'closed' if self.value == 0 or self.value == 2 else 'open'
+                self.valueHA = 'OFF' if self.value == 0 or self.value == 2 else 'ON'
                 log(DB.LOG_DEBUG, f'binary sensor type door: value={self.value}, valueHA={self.valueHA}')
             else:
                 self.valueHA = 'Off' if self.value == 0 else 'On'
@@ -299,6 +299,8 @@ class DomBusDevice():
                         manager.mqttPublish(self.topic + '/state', payload)
                         # self.lastValueHA = self.valueHA MUST BE CONFIRMED BY UPDATE_ACK
                         self.lastValueUpdate = self.lastUpdate
+#                        if self.ha['p'] == 'switch':    #DEBUG
+#                            manager.mqttPublish(self.topic + '/set', payload)
 
                     # if devIDname2 exists => transmit energy value (good also for PORTTYPE_SENSOR_ALARM
                     if self.devIDname2 != "" and (self.energy != self.lastEnergy or (self.lastUpdate - self.lastEnergyUpdate) >= mqtt['publishInterval']):
@@ -657,11 +659,11 @@ class DomBusDevice():
                     proto.send()    # Transmit
                     # Change address to every devices
                     devIDbase = (self.busID<<32) | (newHwAddr<<16)    #0xBBNNNN0000 New devID base
-                    for dev in Devices:
+                    for dev in list(Devices.keys()):
                         if (dev & 0xffffff0000) == (self.devID & 0xffffff0000):  # current device, with old hwaddr
                             # Create a new object for this device
                             devID = devIDbase | (dev & 0xffff)
-                            d = DomBusDevice(devID, Devices[dev].portType, Devices[dev].portOpt, Devices[dev].portName, Devices[dev].options, Devices[dev].haOptions, Devices[dev].dcmd) # Create device object with same configuration as before
+                            d = DomBusDevice(devID, Devices[dev].portType, Devices[dev].portOpt, Devices[dev].portName, Devices[dev].options, Devices[dev].ha, Devices[dev].dcmd) # Create device object with same configuration as before
                             Devices[devID] = d
                             d.value = Devices[dev].value
                             d.valueHA = Devices[dev].valueHA
@@ -674,7 +676,9 @@ class DomBusDevice():
                                 # portType changed => remove previous entity by sending config topic with empty payload
                                 log(DB.LOG_DEBUG,f'Removing old associated entity for {Devices[dev].devIDname}...')
                                 manager.mqttPublish(Devices[dev].lastTopic2Config, "")
-                            del Devices[dev]    # Remove previous object with old address
+                                del Devices[dev]
+                    if self.frameAddr in Modules:
+                        del Modules[self.frameAddr]
 
         if 'A' not in self.options:
             self.options['A'] = 1
@@ -1051,7 +1055,12 @@ class DomBusProtocol(asyncio.Protocol):
                                                         # ha['state_class'] = 'total_increasing'
                                                         # ha['unit_of_measurement'] = 'kWh'
                                                         options['DIVIDER'] = 2000   # Default: 1kW = 2000 pulses => 1 pulse = 0.0005Wh
-
+                                                    elif portType == DB.PORTTYPE_IN_ANALOG:
+                                                        # Analog input
+                                                        if port == 7 and (self.devAddr == 0xff51 or Modules[self.frameAddr][DB.LASTTYPE] == 'DomBusTH'):
+                                                            options['A'] = 0.000612695
+                                                            ha['suggested_display_precision'] = 2
+                                                                  
                                                     manager.parseConfiguration(self.devID, portType, portOpt, f"P{port:02x} {portName}", options, ha)
                                                     # log(DB.LOG_DEBUG, f"DomBusDevice({self.devID:08x}, {portType:x}, {portOpt:x}, P{port:02x} {portName}, {portConf}, {Options}, {ha})")
                                                     # Devices[self.devID] = DomBusDevice(self.devID, portType, portOpt, f"P{port:02x} {portName}", portConf, Options, ha)
@@ -1336,23 +1345,22 @@ class DomBusProtocol(asyncio.Protocol):
                 #check that module is active
                 if timeFromLastRx > DB.MODULE_ALIVE_TIME:
                     # too long time since last RX from this module: remove it from Modules
-                    if not frameAddr: 
-                        frameAddr = 0xffffff  # dummy value to avoid errors
-                    log(DB.LOG_INFO,f"Remove module {frameAddr:06x} because it's not alive")
-                    delmodules.append(frameAddr)
-                    # also remove any cmd in the self.txQueue
-                    log(DB.LOG_INFO,"Remove txQueue for {frameAddr:06x}")
-                    self.txQueueRemove(frameAddr,255,255,0)
-                    # TODO: set device as not available
-                    """
-                    log(DB.LOG_INFO,"Set devices in timedOut mode (red header) for this module")
-                    deviceIDMask="H{:04x}_P".format(frameAddr)
-                    for Device in Devices:
-                        d=Devices[Device]
-                        if (d.Used==1 and d.DeviceID[:7]==deviceIDMask):
-                            # device is used and matches frameAddr
-                            d.Update(nValue=d.nValue, sValue=d.sValue, TimedOut=1) #set device in TimedOut mode (red bar)
-                    """
+                    if frameAddr: 
+                        log(DB.LOG_INFO,f"Remove module {frameAddr:06x} because it's not alive")
+                        delmodules.append(frameAddr)
+                        # also remove any cmd in the self.txQueue
+                        log(DB.LOG_INFO,f"Remove txQueue for {frameAddr:06x}")
+                        self.txQueueRemove(frameAddr,255,255,0)
+                        # TODO: set device as not available
+                        """
+                        log(DB.LOG_INFO,"Set devices in timedOut mode (red header) for this module")
+                        deviceIDMask="H{:04x}_P".format(frameAddr)
+                        for Device in Devices:
+                            d=Devices[Device]
+                            if (d.Used==1 and d.DeviceID[:7]==deviceIDMask):
+                                # device is used and matches frameAddr
+                                d.Update(nValue=d.nValue, sValue=d.sValue, TimedOut=1) #set device in TimedOut mode (red bar)
+                        """
 
         for d in delmodules:    #remove module address of died modules (that do not answer since long time (MODULE_ALIVE_TIME))
             if d in Modules:
@@ -1384,21 +1392,24 @@ class DomBusManager:
         self.selectedModule = 0     # address of module selected by CLI (telnet)
 
         self.commands = {
-            'help':     { 
+            'help':     {
                 'cmd': self.cmd_help,     
                 'help': 'Print this help. Type "help CMD" to get info about the specified cmd' },
             'refresh':   {
                 'cmd': self.cmd_refresh,
                 'help': 'Send list of all devices to the domotic controller\r\nWith command "refresh reset" all DomBus entities are removed and created as new\r\n so you can loose configuration, entity name, ...',   },
-            'showbus':  { 
+            'showbus':  {
                 'cmd': self.cmd_showbus,
                 'help': 'Show the list of available buses\r\nSpecify a bus to show modules attached to that bus, e.g. "showbus 1"' }, 
             'showmodule':   { 
                 'cmd': self.cmd_showmodule, 
                 'help': 'Show data about the specified module: e.g. "showmodule ffe3"' },
+            'rmmodule':   { 
+                'cmd': self.cmd_rmmodule, 
+                'help': 'Remove a module from DomBusGateway and MQTT controller (Home Assistant, ...):\r\ne.g. "rmmodule ffe3"' },
             'setport':  {
                 'cmd': self.cmd_setport,
-                'help': 'Configure the specified port: "showbus" and "showmodule" commands have to be invoked\r\nto select the module to be configured. Examples:\r\n"setport 01 IN_ANALOG,A=0.00042" to set port 1 as analog input, specifying the A coefficient\r\n"setport 02 IN_DIGITAL,INVERTED" to set port 2 as digital input with inverted logic\r\n(On when port 2 is pulled to GND, Off when left open)' },
+                'help': 'Configure the specified port: "showbus" and "showmodule" commands have to be invoked\r\nto select the module to be configured. Examples:\r\n"setport 01 IN_ANALOG,A=0.00042" to set port 1 as analog input, specifying the A coefficient\r\n"setport 02 IN_DIGITAL,INVERTED" to set port 2 as digital input with inverted logic\r\n(On when port 2 is pulled to GND, Off when left open)\r\n"setport c p=binary_sensor,device_class=window" to set entity platform and class' },
         }
 
     async def add_bus(self, busID, port, baudrate=115200):
@@ -1641,6 +1652,41 @@ class DomBusManager:
         else:
             self.showModuleList(writer)
 
+    async def cmd_rmmodule(self, args, writer):
+        """Remove a module for the selected bus"""
+        for arg in args:
+            try:
+                addr = int(arg, 16)
+            except ValueError:
+                writer.write(f'Invalid module address: {arg}. Must be like "ffe3" or "1" or "123c"!\r\n'.encode())
+            else:
+                frameAddr = None
+                if addr == 0 or addr == 0xffff:
+                    writer.write(b'Invalid address: cannot be 0 or ffff\r\n')
+                elif addr < 0xffff:
+                    frameAddr = (self.selectedBus << 16) + addr
+                elif addr < 0xffffff:
+                    frameAddr = addr
+                else:
+                    writer.write(b'Invalid address: should be between 1 and fffe (only addr) or between 10001 to fffffe (with bus number)\r\n')
+                # Check that module frameAddr exists
+                if frameAddr:
+                    if frameAddr not in Modules:
+                        writer.write(f'Module with address {(frameAddr & 0xffff):x} does not exist in bus {(frameAddr >> 16):x}\r\n'.encode())
+                    else:
+                        # Module exists: delete all devices
+                        for d in list(Devices.keys()):
+                            if (d >> 16) == frameAddr:
+                                # Matches 
+                                writer.write(f'Removing port {(d & 0xffff):x} for device {frameAddr:x}...\r\n'.encode())
+                                if mqtt['enabled'] != 0:
+                                    self.mqttPublish(Devices[d].topicConfig, "") # Remove entity from HA
+                                    if Devices[d].topic2Config:
+                                        self.mqttPublish(Devices[d].topic2Config, "") # Remove associated entity from HA
+                                del Devices[d]
+                        del Modules[frameAddr]                
+
+
     async def cmd_setport(self, args, writer):
         """Configure a port for the specified module"""
         port = 0
@@ -1706,6 +1752,10 @@ class DomBusManager:
             devID = devIDbase + p
             if devID in Devices:
                 writer.write(f'- {Devices[devID].portName}: {Devices[devID].portConf}\r\n'.encode())
+
+    def removeModule(self, devID):
+        """Remove the module with specified devID from DomBusGateway and from MQTT"""
+
 
     def parseConfiguration(self, devID, portType, portOpt, portName, options:dict, ha:dict, value:int = None):
         """Received options and ha dicts: check configuration ond call updateDeviceConfig to update both Device and DomBus module"""
