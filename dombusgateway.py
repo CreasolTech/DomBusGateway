@@ -639,7 +639,7 @@ class DomBusDevice():
             if parName in self.options and self.options[parName] >= 3 and self.options[parName] <= 60:
                 proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET9, options[parName])
             parName = 'EVMETERTYPE'; 
-            if parName in self.options and self.options[parName] >= 0 and self.options[parName] <= 1:
+            if parName in self.options and self.options[parName] >= 0 and self.options[parName] < 4:
                 proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET10, options[parName])
             parName = 'EVMINVOLTAGE'; 
             if parName in self.options and self.options[parName] >= 0 and self.options[parName] <= 500:
