@@ -27,9 +27,10 @@ DomBus modules equipped with DomBus firmware can be used with:
 * Other building automation systems supporting **Modbus** protocol can use DomBus modules equipped with Modbus firmware.
 
 
-### For HomeAssistant and OpenHAB, is it better DomBus + DomBusGateway, or Modbus?
+### For HomeAssistant, is it better DomBus + DomBusGateway, or Modbus protocol?
 
-**DomBus firmware + DomBusGateway** implementation is simpler, because **all devices/entities are created automatically**. It's a must in case that DCMD, pushbuttons, alarm sensors and counters are needed.
+**DomBus firmware + DomBusGateway** implementation is quick and simple, because **all devices/entities are created automatically** without any specific integration. **Enable MQTT integration, start DomBusGateway software, connect one or more DomBus modules, and all DomBus ports are immediately visible in your home automation system**.
+Also, DomBus protocol is a must in case that DCMD, pushbuttons, alarm sensors and counters are needed.
 
 Modbus may be used for relay modules, EVSE module (to make your own electric vehicle charging wallbox), Dual axis solar tracker. **Modbus is not recommended in case that pushbuttons, alarm sensors and counters have to be used**, because Modbus is a master-slave protocol where the controller have to poll continuosly all Modbus modules to get their input status, introducing delays.
 
