@@ -1,5 +1,5 @@
 # DomBusGateway
-Python gateway that **interfaces one or more DomBus networks of home automation modules with MQTT AutoDiscovery**
+Gateway that **interfaces one or more DomBus networks of home automation modules with MQTT AutoDiscovery**
 
 
 ### What is DomBus?
@@ -23,17 +23,15 @@ A list of DomBus modules can be found below.
 
 DomBus modules equipped with DomBus firmware can be used with:
 * [Domoticz](https://wiki.domoticz.com/Creasol_Dombus), using the **CreasolDomBus plugin**
-* [Home Assistant](https://www.home-assistant.io/) and [OpenHAB](https://www.openhab.org/), using the **DomBusGateway** software that acts as a **DomBus to MQTT-AD gateway**. Also, other systems supporting MQTT can be used in this way, for example [NodeRED](https://nodered.org/) and many others.
-
-DomBus modules equipped with Modbus firmware can be used with:
-* [Home Assistant](https://www.home-assistant.io/), [OpenHAB](https://www.openhab.org/), [NodeRED](https://nodered.org/), [ioBroker](https://www.iobroker.net/) and many other systems supporting the Modbus protocol. 
+* [Home Assistant](https://www.home-assistant.io/), [OpenHAB](https://www.openhab.org/), [NodeRED](https://nodered.org/), [ioBroker](https://www.iobroker.net/) and other systems supporting MQTT, by using the **DomBusGateway** software that acts as a **DomBus to MQTT-AD gateway**. 
+* Other building automation systems supporting **Modbus** protocol can use DomBus modules equipped with Modbus firmware.
 
 
 ### For HomeAssistant and OpenHAB, is it better DomBus + DomBusGateway, or Modbus?
 
-**DomBus + DomBusGateway** implementation is simpler, because **all devices/entities are created automatically**. It's a must in case that DCMD, pushbuttons, alarm sensors and counters are needed.
+**DomBus firmware + DomBusGateway** implementation is simpler, because **all devices/entities are created automatically**. It's a must in case that DCMD, pushbuttons, alarm sensors and counters are needed.
 
-Modbus may be used for relay modules, EVSE module (to make your own electric vehicle charging wallbox), Dual axis solar tracker. **Modbus is not recommended in case that pushbuttons, alarm sensors and counters have to be used**, because Modbus is a master-slave protocol so the controller have to poll continuosly to get input status, introducing delays.
+Modbus may be used for relay modules, EVSE module (to make your own electric vehicle charging wallbox), Dual axis solar tracker. **Modbus is not recommended in case that pushbuttons, alarm sensors and counters have to be used**, because Modbus is a master-slave protocol where the controller have to poll continuosly all Modbus modules to get their input status, introducing delays.
 
 ### Example: DomBusEVSE module used to make a Smart Wallbox with Home Assistant
 
@@ -75,6 +73,8 @@ restored in case of software update.
 
 # Installation
 
+* cd /usr/local  (or another directory)
+
 * git clone git@github.com:CreasolTech/DomBusGateway.git
 
 * cd DomBusGateway
@@ -83,7 +83,13 @@ restored in case of software update.
 
 * python3 dombusgateway.py
 
-The software is still in developing, so do not expect to have full features available and software stability!
+It's also possible to run the software from _rc.local_, by adding in _/etc/rc.local_
+```
+cd /usr/local/DomBusGateway
+nohup python3 dombusgateway.py &
+```
+
+The software is still in developing, and will be improved soon!
 
 
 
