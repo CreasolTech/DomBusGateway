@@ -74,21 +74,31 @@ restored in case of software update.
 
 # Installation
 
-* cd /usr/local  (or another directory)
+## In a normal Linux environment
 
-* git clone git@github.com:CreasolTech/DomBusGateway.git
+* __cd /usr/local  (or another directory)__
 
-* cd DomBusGateway
+* __git clone git@github.com:CreasolTech/DomBusGateway.git__
+
+* __cd DomBusGateway__
 
 * edit file _dombusgateway_conf_local.py_ to define the serial ports, logging, MQTT parameters
 
-* python3 dombusgateway.py
+* install python modules not yet available: __pip3 install -r requirements.txt__
+
+  In case of error, use __sudo pip3 install -r requirements.txt --break-system-packages__
+
+* __python3 dombusgateway.py__
 
 It's also possible to run the software from _rc.local_, by adding in _/etc/rc.local_
 ```
 cd /usr/local/DomBusGateway
-nohup python3 dombusgateway.py &
+nohup python3 dombusgateway.py >/dev/null 2>&1 &
 ```
+
+## In HASSOS (Home Asisstant Operating System)
+
+TODO
 
 The software is still in developing, and will be improved soon!
 
