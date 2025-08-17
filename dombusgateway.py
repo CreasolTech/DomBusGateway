@@ -1584,11 +1584,11 @@ class DomBusManager:
     async def cmd_help(self, args, writer):
         """Send back an help text"""
         if args and args[0] in self.commands:
-            writer.write(f'{self.commands[args[0]]['help']}\r\n'.encode())
+            writer.write(f'{self.commands[ args[0] ][ "help" ]}\r\n'.encode())
         else:
             writer.write(f'This interface permits to check and set configuration for a DomBus network of home automation modules.\r\nAvailable commands:\r\n'.encode())
             for cmd in self.commands:
-                hs=re.sub('\r\n', '\r\n           ', self.commands[cmd]['help'])
+                hs=re.sub('\r\n', '\r\n           ', self.commands[ cmd ][ 'help' ])
                 writer.write(f'{cmd:10} {hs}\r\n\r\n'.encode())
 
     async def cmd_refresh(self, args, writer):
