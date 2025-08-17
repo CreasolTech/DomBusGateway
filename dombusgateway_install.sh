@@ -73,8 +73,8 @@ if [ ! -r "${INSTALLDIR}/DomBusGateway" ]; then
 	git clone https://github.com/CreasolTech/DomBusGateway
 fi
 cd "${INSTALLDIR}/DomBusGateway"
-chown -R dombus *
-chmod 700 dombusgateway.py
+chown -R dombus . *
+chmod u+x dombusgateway.py
 
 echo -n "*** Check if dombus user exists... "
 id dombus	# check if user already exists
