@@ -76,31 +76,26 @@ restored in case of software update.
 
 ## In a normal Linux environment
 
-* __cd /usr/local  (or another directory)__
+From the shell, run the command:
 
-* __git clone git@github.com:CreasolTech/DomBusGateway.git__
+__sudo bash -c "$(curl -sSfL https://docs.creasol.it/dombusgateway_install.sh)"__
 
-* __cd DomBusGateway__
+that will automatically install the package and run it from systemd.
 
-* edit file _dombusgateway_conf_local.py_ to define the serial ports, logging, MQTT parameters
+DomBusGateway daemon then can be stopped and started by systemd, using the commands:
 
-* install python modules not yet available: __pip3 install -r requirements.txt__
+__systemctl stop dombusgateway__
 
-  In case of error, use __sudo pip3 install -r requirements.txt --break-system-packages__
+__systemctl start dombusgateway__
 
-* __python3 dombusgateway.py__
-
-It's also possible to run the software from _rc.local_, by adding in _/etc/rc.local_
-```
-cd /usr/local/DomBusGateway
-nohup python3 dombusgateway.py >/dev/null 2>&1 &
-```
 
 ## In HASSOS (Home Asisstant Operating System)
 
-TODO
+TODO: realize an addon for HASSOS
 
-The software is still in developing, and will be improved soon!
+
+
+_Disclaimer: the software is still in developing, and will be improved soon!_
 
 
 

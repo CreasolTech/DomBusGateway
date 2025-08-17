@@ -1,0 +1,15 @@
+[Unit]
+Description=DomBusGateway bridge between DomBus and MQTT
+After=mosquitto.service
+Requires=mosquitto.service  
+
+[Service]
+Type=simple
+User=dombus
+WorkingDirectory=/opt/DomBusGateway
+ExecStart=/opt/DomBusGateway/dombusgateway.py
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
