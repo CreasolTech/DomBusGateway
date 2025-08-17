@@ -63,17 +63,10 @@ fi
 echo "*** Installing python dependencies... "
 installPkg python3-pip python3-paho-mqtt python3-asyncio-mqtt python3-serial-asyncio
 
-id dombus	# check if user already exists
-if [ $? -ne 0 ]; then 
-	echo "Creating system user 'dombus'... "
-	useradd -r -d /opt/DomBusGateway -c 'DomBus gateway user' -G dialout,mosquitto -s /usr/sbin/nologin dombus
-else
-	echo "User dombus already exist! Ok"
-fi
-
 if [ ! -r "${INSTALLDIR}" ]; then
 	mkdir "${INSTALLDIR}"
 fi
+cd  $INSTALLDIR
 
 if [ ! -r "${INSTALLDIR}/DomBusGateway" ]; then
 	echo "*** Clone DomBusGateway repository..."
@@ -82,6 +75,16 @@ fi
 cd "${INSTALLDIR}/DomBusGateway"
 chown -R dombus *
 chmod 700 dombusgateway.py
+
+# check for dombus user
+id dombus	# check if user already exists
+if [ $? -ne 0 ]; then 
+	echo "Creating system user 'dombus'... "
+	useradd -r -d /opt/DomBusGateway -c 'DomBus gateway user' -G dialout,mosquitto -s /usr/sbin/nologin dombus
+else
+	echo "User dombus already exist! Ok"
+fi
+
 
 if [ ! -r /etc/systemd/system/dombusgateway.service ]; then
 	echo "Creating dombusgateway systemd service..."
