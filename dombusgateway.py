@@ -204,7 +204,7 @@ class DomBusDevice():
     def value2valueHA(self):
         """Convert value got from DomBus to a device state compatible with Home Assistant"""
         if self.ha['p'] == 'select':
-            self.valueHA = self.ha['options'][int(self.value / 10)]
+            self.valueHA = self.value / 10
         elif (self.portType & (DB.PORTTYPE_OUT_DIGITAL | DB.PORTTYPE_OUT_RELAY_LP | DB.PORTTYPE_OUT_LEDSTATUS | DB.PORTTYPE_IN_AC) or self.ha['p'] == 'switch'):
             self.valueHA = 'OFF' if self.value==0 else 'ON'
         elif (self.portType & (DB.PORTTYPE_IN_TWINBUTTON | DB.PORTTYPE_OUT_BLIND)):
