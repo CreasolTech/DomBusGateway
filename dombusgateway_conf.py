@@ -68,4 +68,7 @@ telnet = {
     'address':      '127.0.0.1',        # interface to bind to. '127.0.0.1' => localhost, '192.168.x.y' => LAN, '0.0.0.0' => all interfaces
 }
 
-from local/dombusgateway_conf_local import *
+try:
+    from local.dombusgateway_conf_localaaaa import *
+except:
+    print("Configuration file local/dombusgateway_conf_local does not exist")
