@@ -76,12 +76,14 @@ cd "${INSTALLDIR}/DomBusGateway"
 chown -R dombus *
 chmod 700 dombusgateway.py
 
-# check for dombus user
+echo -n "*** Check if dombus user exists... "
 id dombus	# check if user already exists
 if [ $? -ne 0 ]; then 
+	echo "NO!"
 	echo "Creating system user 'dombus'... "
 	useradd -r -d /opt/DomBusGateway -c 'DomBus gateway user' -G dialout,mosquitto -s /usr/sbin/nologin dombus
 else
+	echo "Yes"
 	echo "User dombus already exist! Ok"
 fi
 
