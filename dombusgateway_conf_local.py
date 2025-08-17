@@ -12,8 +12,8 @@
 # Please read dombusgateway_conf.py to know how to make serial devices static, unchangeable at reboot
 
 buses = {
-    1: { 'serialPort': '/dev/ttyUSBdombus1', },
-    2: { 'serialPort': '/dev/ttyUSBdombus2', },
+    1: { 'serialPort': '/dev/ttyUSB0', },
+#    2: { 'serialPort': '/dev/ttyUSBdombus2', },
 }
 
 # MQTT parameters: set mqttEnabled = 0 to disable this feature
@@ -21,8 +21,8 @@ mqtt = {
     'enabled':      1,                  # 0 => disabled, 1 => enabled
     'host':         '127.0.0.1',        # IP address or hostname for the MQTT broker (default '127.0.0.1')
     'port':         1883,               # MQTT broker port (default 1883)
-    'user':         'domoticz',         # MQTT username
-    'pass':         'secret',           # MQTT password
+    'user':         'dombus',           # MQTT username
+    'pass':         'secretpasswd',      # MQTT password
     'topic':        'dombus',           # MQTT topic for the domotic controller
     'topicConfig':  'homeassistant',    # MQTT topic for the domotic controller
     'publishInterval':  300             # Republish entity values every 300 seconds, if they were not changed.

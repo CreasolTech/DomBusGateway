@@ -42,7 +42,7 @@ fi
 
 installPkg git gpw telnet
 
-PASS=`gpw 1 11`
+PASSWD=`gpw 1 11`
 	
 echo -n "*** Checking if mosquitto is installed... "
 command -v mosquitto
@@ -56,8 +56,8 @@ if [ ! -r /etc/mosquitto/passwd ]; then
 	> /etc/mosquitto/passwd
 fi
 if [ -z `egrep ^dombus: /etc/mosquitto/passwd 2>/dev/null` ]; then  
-	echo "*** Creating mosquitto user dombus with random generated password $PASS ..."
-	mosquitto_passwd -b /etc/mosquitto/passwd dombus "$PASS"
+	echo "*** Creating mosquitto user dombus with random generated password $PASSWD ..."
+	mosquitto_passwd -b /etc/mosquitto/passwd dombus "$PASSWD"
 fi
 
 echo "*** Installing python dependencies... "
@@ -73,8 +73,9 @@ if [ ! -r "${INSTALLDIR}/DomBusGateway" ]; then
 	git clone https://github.com/CreasolTech/DomBusGateway
 fi
 cd "${INSTALLDIR}/DomBusGateway"
-mkdir data local
+mkdir data local 2>/dev/null
 cp dombusgateway_conf_local.py local/
+sed -i local/dombusgateway_conf_local.py "s/secretpasswd/${PASSWD}/"
 chown -R dombus . *
 chmod u+x dombusgateway.py
 
