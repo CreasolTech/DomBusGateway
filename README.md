@@ -78,7 +78,7 @@ restored in case of software update.
 
 From the shell, run the command:
 
-__sudo bash -c "$(curl -sSfL https://docs.creasol.it/dombusgateway_install.sh)"__
+__sudo bash -c "$(curl -sSfL https://creasol.it/DBGinstall)"__
 
 that will automatically install the package and run it from systemd.
 
