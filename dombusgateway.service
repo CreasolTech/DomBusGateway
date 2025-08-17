@@ -10,8 +10,6 @@ WorkingDirectory=/opt/DomBusGateway
 ExecStart=/opt/DomBusGateway/dombusgateway.py
 Restart=on-failure
 RestartSec=5s
-StandardOutput=file:/var/log/dombusgateway/info.log
-StandardError=file:/var/log/dombusgateway/errors.log
 
 [Install]
 WantedBy=multi-user.target

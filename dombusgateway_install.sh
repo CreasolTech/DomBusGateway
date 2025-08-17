@@ -79,8 +79,8 @@ cp dombusgateway_conf_local.py local/
 if [ ! -r /var/log/dombusgateway ]; then
 	echo "*** Creating directory for logging /var/log/dombusgateway ..."
 	mkdir -p /var/log/dombusgateway 2>/dev/null
-	> /var/log/dombusgateway/info.log
-	> /var/log/dombusgateway/errors.log
+	>> /var/log/dombusgateway/info.log
+	>> /var/log/dombusgateway/errors.log
 fi
 chown -R dombus /var/log/dombusgateway
 

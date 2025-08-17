@@ -7,6 +7,10 @@
 VERSION = "0.1"
 
 from dombusgateway_conf import *
+
+import logging
+from logging.handlers import RotatingFileHandler
+
 import asyncio
 import serial_asyncio
 if mqtt['enabled'] != 0:
@@ -35,7 +39,8 @@ def log(level, msg):
         logName = DB.LOGNAME[DB.LOG_NONE]
         if level in DB.LOGNAME:
             logName = DB.LOGNAME[level]
-        print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {logName}{msg}")
+        # print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {logName}{msg}")
+        logging.info(f"{logName}{msg}")
 
 def getFloat(s):
     """Extract the float value from string. Return None in case of error"""
@@ -1829,6 +1834,22 @@ if __name__ == "__main__":
         await asyncio.Event().wait()
 
     ############### main ################
+    # logging
+    log_file = "/var/log/dombusgateway/info.log"
+    logHandler = RotatingFileHandler(
+        log_file,
+        maxBytes=10 * 1024 * 1024,  # 10 MB
+        backupCount=5,               # Keep 5 rotated logs
+        encoding="utf-8"
+    )
+
+    logging.basicConfig(
+        handlers=[logHandler],
+        level=logging.INFO,
+        format="%(asctime)s - %(message)s"
+    )
+
+
     # check that data directory exists
     dataPath = Path(datadir)
     dataPath.mkdir(parents=True, exist_ok=True)
