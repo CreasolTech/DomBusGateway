@@ -52,9 +52,10 @@ if [ $? -ne 0 ]; then
 fi
 if [ ! -r /etc/mosquitto/passwd ]; then
 	echo "*** mosquitto passwd /etc/mosquitto/passwd does not exist"
-	#TODO
+	echo "password_file /etc/mosquitto/passwd" > /etc/mosquitto/conf.d/password_file.conf
+	> /etc/mosquitto/passwd
 fi
-if [ -z `egrep ^dombus: /etc/mosquitto/passwd` ]; then  
+if [ -z `egrep ^dombus: /etc/mosquitto/passwd 2>/dev/null` ]; then  
 	echo "*** Creating mosquitto user dombus with random generated password $PASS ..."
 	mosquitto_passwd -b /etc/mosquitto/passwd dombus "$PASS"
 fi
