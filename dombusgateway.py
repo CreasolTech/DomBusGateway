@@ -1632,7 +1632,7 @@ class DomBusManager:
             # Show list of buses
             writer.write(f'Available buses:\r\n'.encode())
             for b in buses:
-                writer.write(f'- {b:02x}: {buses[b]['serialPort']:20} {"CONNECTED" if 'protocol' in buses[b] else "DISCONNECTED"}\r\n'.encode())
+                writer.write(f'- {b:02x}: {buses[b]["serialPort"]:20} {"CONNECTED" if "protocol" in buses[b] else "DISCONNECTED"}\r\n'.encode())
 
 
     async def cmd_showmodule(self, args, writer):
