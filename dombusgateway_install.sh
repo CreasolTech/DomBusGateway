@@ -75,7 +75,7 @@ fi
 cd "${INSTALLDIR}/DomBusGateway"
 mkdir data local 2>/dev/null
 cp dombusgateway_conf_local.py local/
-sed -i local/dombusgateway_conf_local.py "s/secretpasswd/${PASSWD}/"
+sed -i "s/secretpasswd/${PASSWD}/" local/dombusgateway_conf_local.py
 chown -R dombus . *
 chmod u+x dombusgateway.py
 
