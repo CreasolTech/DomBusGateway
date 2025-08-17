@@ -57,18 +57,21 @@ If TELNET port is enabled, **the user can connect DomBusGateway by Telnet to che
 
 ![screenshot of Home Assisstant that automatically read and manage some DomBus modules](https://images.creasol.it/dombusprotocol.webp)
 
-# Files
+# Files and directories
 
 * _dombusgateway.py_: main server that must be runned in background, calling _python3 dombusgateway.py &_
 
 * _dombusgateway_const.py_: script with several constants used by _dombusgateway.py_
 
-* _dombusgateway_conf.py_: configuration file 
+* _dombusgateway_conf.py_: configuration file that must NOT be changed by the user
 
-* _dombusgateway_conf_local.py_: local configuration file with custom configuration: this is the right place to store your local configuration, saving a copy of this file that should be
-restored in case of software update.
+* _local/dombusgateway_conf_local.py_: local configuration file with custom configuration: this is the right place to store your local configuration, that will not be overwritten by git command
 
 * _data/_: directory, created if not existing, where list of DomBus modules and configuration is saved and restored
+
+* _/var/log/dombusgateway_: directory where logs are stored
+
+* _/etc/systemd/system/dombusgateway.service_: service configuration file for systemd
 
 
 

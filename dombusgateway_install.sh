@@ -75,6 +75,13 @@ fi
 cd "${INSTALLDIR}/DomBusGateway"
 mkdir data local 2>/dev/null
 cp dombusgateway_conf_local.py local/
+
+if [ ! -r /var/log/dombusgateway ]; then
+	echo "*** Creating directory for logging /var/log/dombusgateway ..."
+	mkdir -p /var/log/dombusgateway 2>/dev/null
+fi
+chown -R dombus /var/log/dombusgateway
+
 sed -i "s/secretpasswd/${PASSWD}/" local/dombusgateway_conf_local.py
 chown -R dombus . *
 chmod u+x dombusgateway.py

@@ -1,4 +1,7 @@
-# DomBusGateway configuration (may be modified by the user)
+# DomBusGateway basic configuration
+# DO NOT MODIFY BECAUSE IT MAY BE OVERWRITTEN BY git pull
+# INSTEAD, MODIFY THE FILE local/dombusgateway_conf_local.py
+
 import dombusgateway_const as DB # constants
 
 # Debugging level (it's possible to combine more items): 
@@ -68,7 +71,4 @@ telnet = {
     'address':      '127.0.0.1',        # interface to bind to. '127.0.0.1' => localhost, '192.168.x.y' => LAN, '0.0.0.0' => all interfaces
 }
 
-try:
-    from local.dombusgateway_conf_localaaaa import *
-except:
-    print("Configuration file local/dombusgateway_conf_local does not exist")
+from local.dombusgateway_conf_local import *

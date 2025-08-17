@@ -5,6 +5,7 @@
 # We'll try to never change this file, so you can update your local files using the "git pull" command in a safe mode.
 # ** Before updating, anyway, please make a copy of your dombusgateway_conf_local.py **
 # The following configuration overwrites default configuration in dombusgateway_conf.py , where you can find detail description of each parameter
+import dombusgateway_const as DB # constants
 
 #debugLevel = (DB.LOG_DEBUG | DB.LOG_DUMPRX | DB.LOG_DUMPTX | DB.LOG_DUMPDCMD | DB.LOG_MQTTRX | DB.LOG_MQTTTX)
 
