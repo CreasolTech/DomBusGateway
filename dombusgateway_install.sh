@@ -73,6 +73,8 @@ if [ ! -r "${INSTALLDIR}/DomBusGateway" ]; then
 	git clone https://github.com/CreasolTech/DomBusGateway
 fi
 cd "${INSTALLDIR}/DomBusGateway"
+mkdir data local
+cp dombusgateway_conf_local.py local/
 chown -R dombus . *
 chmod u+x dombusgateway.py
 
