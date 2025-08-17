@@ -1,3 +1,6 @@
+# PLEASE COPY THIS FILE IN THE local DIRECTORY, AND WRITE YOUR CONFIGURATION INSIDE.
+# IN THIS WAY, THE local/dombusgateway_conf_local.py WILL NOT BE OVERWRITTEN by git COMMAND!
+
 # Here you can put your local configuration, overwriting the default configuration in dombusgateway_conf.py
 # We'll try to never change this file, so you can update your local files using the "git pull" command in a safe mode.
 # ** Before updating, anyway, please make a copy of your dombusgateway_conf_local.py **

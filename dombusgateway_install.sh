@@ -40,7 +40,7 @@ if [ $? -ne 0 ]; then
 	exit
 fi
 
-installPkg git gpw
+installPkg git gpw telnet
 
 PASS=`gpw 1 11`
 	
