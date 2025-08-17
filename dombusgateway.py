@@ -10,7 +10,7 @@ from dombusgateway_conf import *
 import asyncio
 import serial_asyncio
 if mqtt['enabled'] != 0:
-    from aiomqtt import Client as MQTTClient
+    from asyncio_mqtt import Client as MQTTClient
     import paho.mqtt.client as MQTTpaho
     from paho.mqtt.subscribeoptions import SubscribeOptions
 
