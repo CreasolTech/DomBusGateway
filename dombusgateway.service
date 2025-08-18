@@ -10,6 +10,9 @@ WorkingDirectory=/opt/DomBusGateway
 ExecStart=/opt/DomBusGateway/dombusgateway.py
 Restart=on-failure
 RestartSec=5s
+ExecStartPre=+/bin/mkdir -m 740 -p /var/log/dombusgateway
+ExecStartPre=+/bin/chown dombus /var/log/dombusgateway
+
 
 [Install]
 WantedBy=multi-user.target
