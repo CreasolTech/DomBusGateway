@@ -690,6 +690,7 @@ class DomBusDevice():
         if 'B' not in self.options:
             self.options['B'] = 0
 
+        self.setPortConf() # write configuration string
         resetReq = None
         if diff & 8:
             # changed entity platform
