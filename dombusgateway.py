@@ -258,6 +258,7 @@ class DomBusDevice():
         if what & DB.UPDATE_VALUE:
             if value is not None:
                 self.value = value * self.options['A'] + self.options['B']
+                if self.options['PRECISION']: self.value = round(self.value, self.options['PRECISION'])
             if counterValue is not None:
                 # COUNTER !
                 if self.portType == DB.PORTTYPE_CUSTOM and (self.portOpt == DB.PORTOPT_IMPORT_ENERGY or self.portOpt == DB.PORTOPT_EXPORT_ENERGY):
@@ -1416,6 +1417,9 @@ class DomBusManager:
             'setport':  {
                 'cmd': self.cmd_setport,
                 'help': 'Configure the specified port: "showbus" and "showmodule" commands have to be invoked\r\nto select the module to be configured. Examples:\r\n"setport 01 IN_ANALOG,A=0.00042" to set port 1 as analog input, specifying the A coefficient\r\n"setport 02 IN_DIGITAL,INVERTED" to set port 2 as digital input with inverted logic\r\n(On when port 2 is pulled to GND, Off when left open)\r\n"setport c p=binary_sensor,device_class=window" to set entity platform and class' },
+            'quit':   { 
+                'cmd': self.cmd_quit, 
+                'help': 'Exit from telnet session' },
         }
 
     async def add_bus(self, busID, port, baudrate=115200):
@@ -1566,11 +1570,16 @@ class DomBusManager:
                 for message in data.decode().split('\n'):
                     if line == 0 or message.strip() != '':
                         log(DB.LOG_TELNET, f"Received {message.strip()}")
+                        if not writer:
+                            # Connection closed by "quit" command?
+                            break
                         await self.handleCmd(message.strip(), writer) # parse commands
                     line += 1
 
         except ConnectionResetError:
             log(DB.LOG_INFO, f"Telnet connection closed by {clientIP}")
+        except Exception as e:
+            log(DB.LOG_INFO, f"Telnet connection error or quit command: {e}")
         finally:
             del telnet['clients'][writer]
             writer.close()
@@ -1797,6 +1806,13 @@ class DomBusManager:
             optionsNew['A'] = float(optionsNew['A'])
         if 'B' in optionsNew:
             optionsNew['B'] = float(optionsNew['B'])
+        if 'PRECISION' in optionsNew:
+            try:
+                precision = int(optionsNew['PRECISION'])
+            except:
+                log(DB.LOG_ERR, f"Invalid precision: should be a positive number indicating the number of digits after the decimal point")
+            else:                
+                optionsNew['PRECISION'] = precision
 
         # Create device, if not exist
         if not d:
@@ -1806,7 +1822,11 @@ class DomBusManager:
 
         # Update MQTT and DomBus module
         d.updateDeviceConfig(portType, portOpt, cal, dcmd, optionsNew, haNew, value)  # Update configuration (setting CAL, DCMD, device_class, ...)
-                
+
+    def cmd_quit(self, args, writer):
+        """Exit from telnet session"""
+        writer.close()
+
 
 ####################################################################### main #################################################################################
 
