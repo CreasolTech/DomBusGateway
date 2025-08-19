@@ -83,7 +83,7 @@ From the shell, run the command:
 
 __sudo bash -c "$(curl -sSfL https://creasol.it/DBGinstall)"__
 
-that will automatically install the package and run it from systemd.
+that will automatically install the package in _/opt/DomBusGateway_ and run it from systemd.
 
 DomBusGateway daemon then can be stopped and started by systemd, using the commands:
 
@@ -96,6 +96,16 @@ __systemctl start dombusgateway__
 
 TODO: realize an addon for HASSOS
 
+
+## DomBusGateway hardware
+
+It's also possible to find some images for SBC/MiniPC that will be used as a real DomBusGateway hardware, with USB port to connect a DomBus network of modules by one USB/RS485 adapter, or to connect a USB hub in case that more USB ports are needed, and one LAN port or WiFi to connect the home automation system by MQTT or MQTT-AD.
+
+### DomBusGateway on Rock PI S
+
+The following image can be written on a microSD card to work on the Rock PI S hardware, a tiny ARM computer with only 400mW power usage, 4 cores, 512MB RAM.
+
+TODO
 
 
 _Disclaimer: the software is still in developing, and will be improved soon!_
@@ -121,6 +131,7 @@ In case that more than 1 bus is installed, this command should be performed afte
 
 * _setport 1 HWADDR=101_ : **set the new address 101 for the current module**. A unique address should be specified, in hex format, from 1 to efff.
 
+* _quit_: exit from telnet session.
 
 
 # DomBusEVSE module to build a DIY EV charger
