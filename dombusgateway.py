@@ -24,6 +24,8 @@ if mqtt['enabled'] != 0:
     from paho.mqtt.subscribeoptions import SubscribeOptions
 
 import os
+import signal
+import sys
 from pathlib import Path
 import json
 import time
@@ -528,14 +530,12 @@ class DomBusDevice():
     def updateDeviceConfig(self, portType: int, portOpt: int, cal: int, dcmd: dict, options: dict, haOptions: dict, value: int = None):
         """Port configuration change requested by the user (via telnet, for example) or by a new device read from DomBus network"""
         
-        log(DB.LOG_DEBUG, f"[updateDeviceConfig] portType={portType:x}, self.portType={self.portType:x}") 
         diff = 0
         self.lastTopicConfig = self.topicConfig     # save previous config topic, used to remove the old entity
         self.lastTopic2Config = None
         if self.topic2Config is not None:
             self.lastTopic2Config = self.topic2Config
         proto = buses[self.busID]['protocol']
-        log(DB.LOG_DEBUG, f"[updateDeviceConfig] 3 self.topicConfig={self.topicConfig}, self.topic2Config={self.topic2Config}") 
 
         if portType is not None and self.portType != portType:
             self.portType = portType
@@ -1735,13 +1735,18 @@ class DomBusManager:
                         for d in list(Devices.keys()):
                             if (d >> 16) == frameAddr:
                                 # Matches 
-                                writer.write(f'Removing port {(d & 0xffff):x} for device {frameAddr:x}...\r\n'.encode())
+                                writer.write(f'Removing port {(d & 0xffff):x} for device {(frameAddr&0xffff):x} on bus (frameAddr>>16)...\r\n'.encode())
                                 if mqtt['enabled'] != 0:
                                     self.mqttPublish(Devices[d].topicConfig, "") # Remove entity from HA
                                     if Devices[d].topic2Config:
                                         self.mqttPublish(Devices[d].topic2Config, "") # Remove associated entity from HA
                                 del Devices[d]
-                        del Modules[frameAddr]                
+                        del Modules[frameAddr]
+                        # Debugging...
+                        writer.write(b'Current devices:\r\n')
+                        for d in list(Devices.keys()):
+                            writer.write(f'{d:x}\r\n'.encode())
+
 
 
     async def cmd_setport(self, args, writer):
@@ -1881,6 +1886,19 @@ class DomBusManager:
         """Exit from telnet session"""
         writer.close()
 
+def sigtermHandler(signum, frame):
+    """Manage the TERM signal"""
+    saveData()
+    log(DB.LOG_INFO, "Exit!")
+    sys.exit(0)
+
+def saveData(): 
+    """Save Modules, Devices dictionaries"""
+    log(DB.LOG_INFO,"Saving Modules and Devices data...")
+    with open(modulesPath, 'w', encoding='utf-8') as f:
+        json.dump(Modules, f, indent=2)
+    with open(devicesPath, 'w', encoding='utf-8') as f:
+        json.dump({k: v.to_dict() for k, v in Devices.items()}, f, indent=2)
 
 ####################################################################### main #################################################################################
 
@@ -1889,7 +1907,8 @@ if __name__ == "__main__":
         global manager
         manager = DomBusManager()
 
-            
+        signal.signal(signal.SIGTERM, sigtermHandler)
+
         for bus in buses:
             try: 
                 await manager.add_bus(busID=bus, port=buses[bus]['serialPort'], baudrate=115200)
@@ -1948,10 +1967,8 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         log(DB.LOG_INFO, "Keyboard interrupt => exit")
-        
-    # save data 
-    with open(modulesPath, 'w', encoding='utf-8') as f:
-        json.dump(Modules, f, indent=2)
-    with open(devicesPath, 'w', encoding='utf-8') as f:
-        json.dump({k: v.to_dict() for k, v in Devices.items()}, f, indent=2)
+    except Exception as e:
+        log(DB.LOG_INFO, f"Receive exception: {e}")
+
+    saveData()  # save Modules, Devices, ...         
 
