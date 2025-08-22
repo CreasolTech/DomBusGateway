@@ -527,13 +527,16 @@ class DomBusDevice():
 
     def updateDeviceConfig(self, portType: int, portOpt: int, cal: int, dcmd: dict, options: dict, haOptions: dict, value: int = None):
         """Port configuration change requested by the user (via telnet, for example) or by a new device read from DomBus network"""
-        diff = 0
         
+        log(DB.LOG_DEBUG, f"[updateDeviceConfig] portType={portType:x}, self.portType={self.portType:x}") 
+        diff = 0
         self.lastTopicConfig = self.topicConfig     # save previous config topic, used to remove the old entity
-        self.lastTopic2Config = self.topic2Config   # save previous config topic, used to remove the old associated entity
+        self.lastTopic2Config = None
+        if self.topic2Config is not None:
+            self.lastTopic2Config = self.topic2Config
         proto = buses[self.busID]['protocol']
+        log(DB.LOG_DEBUG, f"[updateDeviceConfig] 3 self.topicConfig={self.topicConfig}, self.topic2Config={self.topic2Config}") 
 
-        log(DB.LOG_DEBUG, f"updateDeviceConfig(): portType={portType}, self.portType={self.portType}") 
         if portType is not None and self.portType != portType:
             self.portType = portType
             diff += 1
@@ -1768,19 +1771,23 @@ class DomBusManager:
                     except Exception:
                         val = None
                     cmdu = cmd.upper()
-                    writer.write(f"cmd={cmd} val={val}\r\n".encode())
+                    log(DB.LOG_DEBUG,f"cmd={cmd} val={val}")
                     if cmdu in DB.PORTTYPES:
-                        writer.write(f"New portType {cmdu}\r\n".encode())
+                        log(DB.LOG_DEBUG,f"New portType {cmdu}")
                         portType = DB.PORTTYPES[cmdu]
                     elif cmdu in DB.PORTOPTS:
-                        writer.write(f"New portOpt {cmdu}\r\n".encode())
+                        log(DB.LOG_DEBUG,f"New portOpt {cmdu}")
                         portOpt = DB.PORTOPTS[cmdu]
                     elif cmdu in DB.OPTIONS_NAMES and val is not None:
+                        log(DB.LOG_DEBUG,f"New option {cmdu}")
                         options[cmdu] = val
                     elif cmd.lower() in DB.HA_NAMES and val is not None:
+                        log(DB.LOG_DEBUG,f"New ha attribute {cmd.lower()}")
                         ha[cmd.lower()] = val
+                    else:
+                        log(DB.LOG_DEBUG,f"Ignoring {cmd}")
                     
-                self.parseConfiguration(devID, portType, portOpt, portName, options, ha) 
+                self.parseConfiguration(devID, portType, portOpt, portName, options, ha, None, writer) 
             else:
                 if self.selectedModule == 0 or (devID>>16) not in Modules: 
                     writer.write(b'Please select an existing module with command "showmodule XXXX"\r\n')
@@ -1813,7 +1820,7 @@ class DomBusManager:
         """Remove the module with specified devID from DomBusGateway and from MQTT"""
 
 
-    def parseConfiguration(self, devID, portType, portOpt, portName, options:dict, ha:dict, value:int = None):
+    def parseConfiguration(self, devID, portType, portOpt, portName, options:dict, ha:dict, value:int = None, writer = None):
         """Received options and ha dicts: check configuration ond call updateDeviceConfig to update both Device and DomBus module"""
         # confString: "ID=01ff37_01,IN_DIGITAL,INVERTED,DCMD(Pulse)=01ff36_07:Toggle,DCMD(Pulse1)=01ff36_08:Toggle"
         dcmd = {}           # Used to set DCMD configuration
@@ -1856,11 +1863,19 @@ class DomBusManager:
         # Create device, if not exist
         if not d:
             # device object does not exist => create it
+            log(DB.LOG_INFO,"[parseConfiguration] Creating new device...")
             d = DomBusDevice(devID, portType, portOpt, portName, optionsNew, haNew) # Create device object with minimal configuration
             Devices[devID] = d 
 
-        # Update MQTT and DomBus module
-        d.updateDeviceConfig(portType, portOpt, cal, dcmd, optionsNew, haNew, value)  # Update configuration (setting CAL, DCMD, device_class, ...)
+        if d.busID in buses and 'protocol' in buses[d.busID]:
+            # Serial port is active
+            # Update MQTT and DomBus module
+            log(DB.LOG_DEBUG,"[parseConfiguration] Calling updateDeviceConfig...")
+            d.updateDeviceConfig(portType, portOpt, cal, dcmd, optionsNew, haNew, value)  # Update configuration (setting CAL, DCMD, device_class, ...)
+        else:
+            log(DB.LOG_INFO, "[parseConfiguration] Serial port for the associated device is not active now! Cannot configure DomBus module")
+            if writer:
+                writer.write(b"Serial port for the associated device is not active now! Cannot configure DomBus module\r\n")
 
     def cmd_quit(self, args, writer):
         """Exit from telnet session"""

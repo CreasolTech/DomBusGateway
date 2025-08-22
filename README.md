@@ -118,7 +118,13 @@ It's possible to connect dombusgateway by telnet in this way:
 
 _telnet localhost 8023_
 
-Telnet CLI permits to:
+Telnet commands:
+
+* _help_ : **print list of commands**
+
+* _refresh_ : send list of all devices to the domotic controller
+
+* _refresh reset_ : all DomBus entities are removed and created as new, so you can loose configuration, entity names, ...
 
 * _showbus BUS_ : **list modules attached to the specified bus** (it's possible to connect 20-30 modules to the same bus, but for safety reasons it can be good to differentiate bus by floors or by area to manage very large buildings). For example _showbus 2_ to list modules attached to bus #2<br clear="all" /> 
 ![showbus command](https://images.creasol.it/showbus.webp)
@@ -126,10 +132,11 @@ Telnet CLI permits to:
 * _showmodule ADDR_ : **list ports associated to the specified module**. For example _showmodule 3701_ to list ports and configuration for the module with address 3701.
 In case that more than 1 bus is installed, this command should be performed after a _showbus N_ module to select the bus number N, or the first bus will be automatically selected.
 
+* _setport 1 HWADDR=101_ : **set the new address 101 for the current module**. A unique address should be specified, in hex format, from 1 to efff.
+
 * _setport PORT CONFIGURATION_ : **change the configuration of the specified port**. For example _setport 1 IN_COUNTER,DIVIDER=2000_ to configure port1 in counter mode, type energy meter with pulsed output, 2000 pulses / kWh. This command can be issued only after a _showmodule ADDR_ to select the appropriate module.<br clear="all" /> 
 ![setport command example](https://images.creasol.it/setport.webp)
-
-* _setport 1 HWADDR=101_ : **set the new address 101 for the current module**. A unique address should be specified, in hex format, from 1 to efff.
+![setport command example](https://images.creasol.it/dombusgateway_setport.webp)
 
 * _quit_: exit from telnet session.
 
@@ -178,6 +185,7 @@ Software is written by Creasol, https://www.creasol.it with the valuable help of
 # Special thanks to:
 
 * Alex Adam, for debugging
+* Cristiano, for debugging
 
 
 ***
