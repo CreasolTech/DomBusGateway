@@ -112,7 +112,7 @@ class DomBusDevice():
         if haOptions:
             self.ha.update(haOptions)
 
-        self.setPortConf() # write configuration string
+        self.setPortConf() # write configuration string self.portConf=IN_DIGITAL,PULLUP,INVERTED,...
         self.lastUpdate = int(time.time())
         self.value = 0          # later, retrieve value from file
         self.valueHA = ''
@@ -184,6 +184,7 @@ class DomBusDevice():
         for opt in self.options:
             if not ((opt == 'A' and float(self.options[opt]) == 1) or (opt == 'B' and float(self.options[opt]) == 0)): 
                 self.portConf += f',{opt}={self.options[opt]}'
+        log(DB.LOG_DEBUG, f"setPortconf(): self.portConf={self.portConf}")
 
     def setTopics(self, platform1, platform2):
         """ Set self.topic, self,topicConfig, self.topic2, self.topic2COnfig """
@@ -532,11 +533,14 @@ class DomBusDevice():
         self.lastTopic2Config = self.topic2Config   # save previous config topic, used to remove the old associated entity
         proto = buses[self.busID]['protocol']
 
-        if self.portType != portType:
+        log(DB.LOG_DEBUG, f"updateDeviceConfig(): portType={portType}, self.portType={self.portType}") 
+        if portType is not None and self.portType != portType:
+            self.portType = portType
             diff += 1
-        if self.portOpt != portOpt:
+        if portOpt is not None and self.portOpt != portOpt:
+            self.portOpt = portOpt
             diff += 2
-        if dcmd and self.dcmd != dcmd:
+        if dcmd is not None and self.dcmd != dcmd:
             self.dcmd = dcmd.copy()
             diff += 4
         
@@ -556,6 +560,7 @@ class DomBusDevice():
             log(DB.LOG_INFO, f'Update configuration for DomBus module {self.devIDname}:\r\n  {self.portConf}')
             proto.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 7, 0, self.port, [((self.portType>>24)&0xff), ((self.portType>>16)&0xff), ((self.portType>>8)&0xff), (self.portType&0xff), (self.portOpt >> 8), (self.portOpt&0xff)], DB.TX_RETRY,0)
             proto.send()    # Transmit
+            # TODO: send dcmd !
 
         if 'ADDR' in options and options['ADDR']>0 and options['ADDR']<248:
             Log(DB.LOG_INFO, f"Send command to change modbus device address to {options['ADDR']}")
@@ -696,7 +701,8 @@ class DomBusDevice():
         if 'B' not in self.options:
             self.options['B'] = 0
 
-        self.setPortConf() # write configuration string
+        log(DB.LOG_DEBUG, f"updateDeviceConfig(): calling setPortConf()")
+        self.setPortConf() # write configuration string self.portConf
         resetReq = None
         if diff & 8:
             # changed entity platform
@@ -1764,8 +1770,10 @@ class DomBusManager:
                     cmdu = cmd.upper()
                     writer.write(f"cmd={cmd} val={val}\r\n".encode())
                     if cmdu in DB.PORTTYPES:
+                        writer.write(f"New portType {cmdu}\r\n".encode())
                         portType = DB.PORTTYPES[cmdu]
                     elif cmdu in DB.PORTOPTS:
+                        writer.write(f"New portOpt {cmdu}\r\n".encode())
                         portOpt = DB.PORTOPTS[cmdu]
                     elif cmdu in DB.OPTIONS_NAMES and val is not None:
                         options[cmdu] = val
