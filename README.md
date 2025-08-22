@@ -2,7 +2,7 @@
 Gateway that **interfaces one or more DomBus networks of home automation modules with MQTT AutoDiscovery**
 
 
-### What is DomBus?
+## What is DomBus?
 
 It's a custom protocol developed by [Creasol](https://www.creasol.it/domotics) to communicate with home automation modules using a **RS485 serial bus, made by a standard alarm cable within 4 wires**, 2 for data at 115200bps, 2 for 12-24V to supply all devices.
 
@@ -11,7 +11,7 @@ It's a **multi-master protocol**, where each **DomBus module can start communica
 Also, it supports the so-called *DCMD*, commands sent between modules triggered by a input change or when a condition becomes true. **DCMD can be used to realize simple automations that work even when the main controller (Domoticz, Home Assistant, ...) is frozen or OFF, similarly to [KNX](https://www.knx.org/)**.
 
 
-### What are DomBus modules?
+## What are DomBus modules?
 
 They are **very low power consumption devices** with several **versatile I/Os and sensors**, performing general or specific functions, that can be used in building automations. 
 They can be factory programmed with **DomBus** custom protocol, or **Modbus** standard protocol.
@@ -19,7 +19,7 @@ They can be factory programmed with **DomBus** custom protocol, or **Modbus** st
 A list of DomBus modules can be found below.
 
 
-### For what home automation systems can DomBus modules be used?
+## For what home automation systems can DomBus modules be used?
 
 DomBus modules equipped with DomBus firmware can be used with:
 * [Domoticz](https://wiki.domoticz.com/Creasol_Dombus), using the **CreasolDomBus plugin**
@@ -27,14 +27,14 @@ DomBus modules equipped with DomBus firmware can be used with:
 * Other building automation systems supporting **Modbus** protocol can use DomBus modules equipped with Modbus firmware.
 
 
-### For HomeAssistant, is it better DomBus + DomBusGateway, or Modbus protocol?
+## For HomeAssistant, is it better DomBus + DomBusGateway, or Modbus protocol?
 
 **DomBus firmware + DomBusGateway** implementation is quick and simple, because **all devices/entities are created automatically** without any specific integration. **Enable MQTT integration, start DomBusGateway software, connect one or more DomBus modules, and all DomBus ports are immediately visible in your home automation system**.
 Also, DomBus protocol is a must in case that DCMD, pushbuttons, alarm sensors and counters are needed.
 
 Modbus may be used for relay modules, EVSE module (to make your own electric vehicle charging wallbox), Dual axis solar tracker. **Modbus is not recommended in case that pushbuttons, alarm sensors and counters have to be used**, because Modbus is a master-slave protocol where the controller have to poll continuosly all Modbus modules to get their input status, introducing delays.
 
-### Example: DomBusEVSE module used to make a Smart Wallbox with Home Assistant
+## Example: DomBusEVSE module used to make a Smart Wallbox with Home Assistant
 
 Using DomBusGateway software, Home Assistant is able to automatically create, read and manage all entities of the DomBusEVSE module: MQTT integration have to be enabled, of course!
 
@@ -44,7 +44,7 @@ Then it's possible to arrange entities in a custom dashboard as shown below:
 
 More information about the DomBusEVSE module, that can be used to make a home made wallbox working with HomeAssistant, NodeRED, OpenHAB, Domoticz, can be found at https://www.creasol.it/EVSE and https://store.creasol.it . Also, please check the section _DomBusEVSE module to build a DIY EV charger_ below
 		
-
+![DomBusGateway, a DomBus 2 MQTT bridge](https://images.creasol.it/dombusgateway_block1.webp)
 ## How does DomBusGateway work?
 
 Once executed, using the command _python3 dombusgateway.py &_ , it opens **one or more serial ports connected to DomBus modules** (to get a reliable large network, it's possible to divide the DomBus network in trunks with 20-30 modules/each, or divide the building by floors/zones). It's also possible to use **WiFi/LAN RS485 modules that provide a virtual serial interface**, to get a wireless connection between the main controller where DomBusateway runs, and RS485 port physically connected to the DomBus modules. 
@@ -53,7 +53,7 @@ If MQTT is enabled, it **opens a connection to the MQTT broker** to exchange dat
 
 If TELNET port is enabled, **the user can connect DomBusGateway by Telnet to check the network of modules and set configuration parameters for each module**. DomBus modules usually have configurable I/Os, for example a I/O should be configured as digital input, analog input, counter, energy counter, and so on, and this configuration can be done by Telnet.
 
-**The software is still experimental, in development stage**
+**The software is still experimental, in development stage! Any contribution (testing and development) is welcome!**
 
 ![screenshot of Home Assisstant that automatically read and manage some DomBus modules](https://images.creasol.it/dombusprotocol.webp)
 
@@ -91,6 +91,9 @@ __systemctl stop dombusgateway__
 
 __systemctl start dombusgateway__
 
+When installed, to update the software with the last version, it's sufficient to enter the following commands:
+
+__cd  /opt/DomBusGateway; git pull; systemctl restart dombusgateway__
 
 ## In HASSOS (Home Asisstant Operating System)
 
@@ -103,13 +106,19 @@ It's also possible to find some images for SBC/MiniPC that will be used as a rea
 
 ### DomBusGateway on Rock PI S
 
-The following image can be written on a microSD card to work on the Rock PI S hardware, a tiny ARM computer with only 400mW power usage, 4 cores, 512MB RAM.
+The ready-to-use device can be purchased from https://store.creasol.it/dombusgatewaypis . It's based on the Rock PI S hardware, a tiny ARM computer with only 400mW power usage, 4 cores, 512MB RAM.
+Alternatively, it's possible to download the following files:
+* https://docs.creasol.it/dombusgatewaypis.sfdisk
+* https://docs.creasol.it/dombusgatewaypis.fsa 
 
-TODO
-
-
-_Disclaimer: the software is still in developing, and will be improved soon!_
-
+and from the shell of a linux computer write the following commands to write a 64GB (or more) microSD:
+```
+export disk=/dev/sdX   (replace x with the number associated to the microSD device)
+sfdisk $disk < dombusgatewaypis.sfdisk
+fsarchiver -v restfs dombusgatewaypis.fsa id=0,dest=${disk}1 id=1,dest=${disk}2
+```
+Then put the microSD in the Rock PI S hardware and enjoy!
+![DomBusGatewayPIS: DomBusGateway + mosquitto + firewall + backup system running on a Rock PI S minicomputer](https://images.creasol.it/dombusgateway_rockpis.webp)
 
 
 # Telnet command line interface
