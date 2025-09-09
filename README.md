@@ -107,7 +107,7 @@ It's also possible to find some images for SBC/MiniPC that will be used as a rea
 
 ### DomBusGateway on Rock PI S
 
-The ready-to-use device, with Linux + DomBusGateway + Mosquitto already installed, can be purchased from https://store.creasol.it/dombusgatewaypis . It's based on the Rock PI S hardware, a tiny ARM computer with only 400mW power usage, 4 cores, 512MB RAM.
+[**The ready-to-use device, with Linux + DomBusGateway + Mosquitto already installed, can be purchased from store.creasol.it**](https://store.creasol.it/dombusgatewaypis) . It's based on the Rock PI S hardware, a tiny ARM computer with only 400mW power usage, 4 cores, 512MB RAM.
 
 Alternatively, it's possible to download the following files:
 * https://docs.creasol.it/dombusgatewaypis.sfdisk
