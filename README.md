@@ -107,7 +107,8 @@ It's also possible to find some images for SBC/MiniPC that will be used as a rea
 
 ### DomBusGateway on Rock PI S
 
-The ready-to-use device can be purchased from https://store.creasol.it/dombusgatewaypis . It's based on the Rock PI S hardware, a tiny ARM computer with only 400mW power usage, 4 cores, 512MB RAM.
+The ready-to-use device, with Linux + DomBusGateway + Mosquitto already installed, can be purchased from https://store.creasol.it/dombusgatewaypis . It's based on the Rock PI S hardware, a tiny ARM computer with only 400mW power usage, 4 cores, 512MB RAM.
+
 Alternatively, it's possible to download the following files:
 * https://docs.creasol.it/dombusgatewaypis.sfdisk
 * https://docs.creasol.it/dombusgatewaypis.boot.img.gz 
@@ -121,9 +122,9 @@ sfdisk $disk < dombusgatewaypis.sfdisk
 fsarchiver -v restfs dombusgatewaypis.fsa id=0,dest=${disk}1 id=1,dest=${disk}2
 ```
 Then put the microSD in the Rock PI S hardware and enjoy!
-![DomBusGatewayPIS: DomBusGateway + mosquitto + firewall + backup system running on a Rock PI S minicomputer](https://images.creasol.it/dombusgateway_rockpis.webp)
+[![DomBusGatewayPIS: DomBusGateway + mosquitto + firewall + backup system running on a Rock PI S minicomputer](https://images.creasol.it/dombusgateway_rockpis.webp)](https://store.creasol.it/dombusgatewaypis)
 
-The Rock PI S is programmed with a Linux firmware that minimize writing to disk, by having /tmp and /var/log partitions in ramfs (volatile memory). It's possible to access the operating system by SSH, connecting the IP addressed assigned by DHCP (check the router or scan the network to find its IP address) using:
+The Rock PI S is programmed with a Linux firmware that minimize writing to disk, by having */tmp* and */var/log* partitions in ramfs (volatile memory): in this way the microSD life will be extended. It's possible to access the operating system by SSH (port 22), connecting the IP addressed assigned by DHCP (check the router or scan the network to find its IP address) using:
 
 username: **pi** , password: **arangingenni** 
 
@@ -139,12 +140,14 @@ password: **secretpasswd**
 
 To disable mosquitto service, just run **sudo systemctl disable mosquitto**
 
+To connect the DomBusGateway telnet interface, first connect DomBusGatewayPIS by SSH, then run the command **telnet localhost 8023**
+
 
 # Telnet command line interface
 
 It's possible to connect dombusgateway by telnet in this way:
 
-_telnet localhost 8023_
+**telnet localhost 8023**
 
 Telnet commands:
 
