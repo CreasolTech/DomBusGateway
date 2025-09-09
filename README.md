@@ -124,20 +124,15 @@ fsarchiver -v restfs dombusgatewaypis.fsa id=0,dest=${disk}1 id=1,dest=${disk}2
 Then put the microSD in the Rock PI S hardware and enjoy!
 [![DomBusGatewayPIS: DomBusGateway + mosquitto + firewall + backup system running on a Rock PI S minicomputer](https://images.creasol.it/dombusgateway_rockpis.webp)](https://store.creasol.it/dombusgatewaypis)
 
-The Rock PI S is programmed with a Linux firmware that minimize writing to disk, by having */tmp* and */var/log* partitions in ramfs (volatile memory): in this way the microSD life will be extended. It's possible to access the operating system by SSH (port 22), connecting the IP addressed assigned by DHCP (check the router or scan the network to find its IP address) using:
+The Rock PI S is programmed with a Linux firmware that minimize writing to disk, by having */tmp* and */var/log* partitions in ramfs (volatile memory): in this way the microSD life will be extended. It's possible to access the operating system by SSH (port 22), connecting the IP addressed assigned by DHCP (check the router or scan the network to find its IP address) using:\
+username: **pi** , password: **arangingenni**\
+username: **root** , password: **geriandallse**
 
-username: **pi** , password: **arangingenni** 
+Login by SSH protocol using **pi** user, then type **sudo su -** to get root priviledges. Passwords can be modified by using the *passwd* command, of course.
 
-username: **root** , password: **geriandallse**  
-
-Enter by SSH protocol using **pi** user, then type **sudo su -** to get root priviledges. Passwords can be modified by using the *passwd* command, of course.
-
-Also, the system runs *mosquitto* MQTT broker that can be accessed on port 1883 with the following credentials:
-
-username: **dombus**
-
-password: **secretpasswd**
-
+Also, the system runs *mosquitto* MQTT broker that can be accessed on port 1883 with the following credentials:\
+username: **dombus**\
+password: **secretpasswd**\
 To disable mosquitto service, just run **sudo systemctl disable mosquitto**
 
 To connect the DomBusGateway telnet interface, first connect DomBusGatewayPIS by SSH, then run the command **telnet localhost 8023**
