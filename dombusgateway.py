@@ -36,6 +36,8 @@ from typing import Any
 from datetime import datetime
 from queue import Queue
 
+import argparse
+
 Devices = dict()    # list of all devices (one device for each module port)
 Modules = dict()    # list of modules
 delmodules = []     # list of frameAddr that must be removed from Modules{}
@@ -1904,7 +1906,7 @@ def saveData():
 
 if __name__ == "__main__":
     async def main():
-        global manager
+        global manager, debugLevel
         manager = DomBusManager()
 
         signal.signal(signal.SIGTERM, sigtermHandler)
@@ -1928,21 +1930,69 @@ if __name__ == "__main__":
         await asyncio.Event().wait()
 
     ############### main ################
+    # parsing args...
+    parser = argparse.ArgumentParser(prog='DomBusGateway', description='DomBus 2 MQTT bridge')
+
+    parser.add_argument('--debug_level', '-d', type=int, default=7,
+            help='Debug level: 0=OFF, 1=Errors, 3=Warnings, 7=Info, 15=Debug, +16=RX, +32=TX, +64=DCMD, +256=MQTTRX, +512=MQTTTX, +65536=Telnet')
+    parser.add_argument('--bus1_port', '-b1', type=str, default='',
+            help='Serial port for bus1, for example /dev/ttyUSB0')
+    parser.add_argument('--bus2_port', '-b2', type=str, default='',
+            help='Serial port for bus2, for example /dev/ttyUSB1')
+    parser.add_argument('--bus3_port', '-b3', type=str, default='',
+            help='Serial port for bus3, for example /dev/ttyUSB2')
+    parser.add_argument('--bus4_port', '-b4', type=str, default='',
+            help='Serial port for bus4, for example /dev/ttyUSB3')
+    parser.add_argument('--mqtt_host', '-mh', type=str, default='',
+            help='Hostname or IP address of the MQTT broker, for example homeassistant.local')
+    parser.add_argument('--mqtt_port', '-mp', type=int,
+            help='TCP port of the MQTT broker, for example 1883')
+    parser.add_argument('--mqtt_user', '-mu', type=str, default='',
+            help='Username that can access the MQTT broker, for example dombus. On HAOS, a user must be created with this name')
+    parser.add_argument('--mqtt_pass', '-ms', type=str, default='',
+            help='Password for the user accessing the MQTT broker')
+
+    args = parser.parse_args()
+    if args.debug_level:    debugLevel = args.debug_level
+    if args.bus1_port and args.bus1_port != '':
+        if 1 not in buses: buses[1]={}     
+        buses[1]['serialPort']=args.bus1_port
+        if args.bus2_port and args.bus2_port != 'null':
+            if 2 not in buses: buses[2]={}     
+            buses[2]['serialPort']=args.bus2_port
+            if args.bus3_port and args.bus3_port != 'null':
+                if 3 not in buses: buses[3]={}     
+                buses[3]['serialPort']=args.bus3_port
+                if args.bus4_port and args.bus4_port != 'null':
+                    if 4 not in buses: buses[4]={}     
+                    buses[4]['serialPort']=args.bus4_port
+    if args.mqtt_host and args.mqtt_host != '':
+        mqtt['host'] = args.mqtt_host
+    if args.mqtt_port:
+        mqtt['port'] = args.mqtt_port
+        print(f"mqtt_port={mqtt['port']}")
+    if args.mqtt_user and args.mqtt_user != '':
+        mqtt['user'] = args.mqtt_user
+    if args.mqtt_pass and args.mqtt_pass != '':
+        mqtt['pass'] = args.mqtt_pass
+
     # logging
-    log_file = "/var/log/dombusgateway/info.log"
-    logHandler = RotatingFileHandler(
-        log_file,
-        maxBytes=10 * 1024 * 1024,  # 10 MB
-        backupCount=5,               # Keep 5 rotated logs
-        encoding="utf-8"
-    )
+    if logFile: 
+        logHandler = RotatingFileHandler(
+            logFile,
+            maxBytes=10 * 1024 * 1024,  # 10 MB
+            backupCount=5,               # Keep 5 rotated logs
+            encoding="utf-8"
+        )
+    else:
+        logHandler=logging.StreamHandler(sys.stdout)
 
     logging.basicConfig(
         handlers=[logHandler],
         level=logging.INFO,
         format="%(asctime)s - %(message)s"
     )
-
+    """handlers=[logHandler],"""
 
     # check that data directory exists
     dataPath = Path(datadir)

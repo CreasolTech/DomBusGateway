@@ -4,6 +4,8 @@
 
 import dombusgateway_const as DB # constants
 
+datadir = 'data'    # directory where Devices configuration and other data will be saved    
+
 # Debugging level (it's possible to combine more items): 
 # DB.LOG_NONE   => Nothing
 # DB.LOG_ERR    => Errors
@@ -22,7 +24,8 @@ import dombusgateway_const as DB # constants
 #debugLevel = (DB.LOG_DEBUG | DB.LOG_DUMPDCMD | DB.LOG_MQTTRX | DB.LOG_MQTTTX | DB.LOG_DUMPTX | DB.LOG_DUMPRX | DB.LOG_TELNET)
 debugLevel = (DB.LOG_DEBUG | DB.LOG_DUMPRX | DB.LOG_DUMPTX | DB.LOG_DUMPDCMD | DB.LOG_TELNET)
 
-datadir = 'data'    # directory where Devices configuration and other data will be saved    
+# logFile = "info.log"
+logFile = None      # print log to stdout    
 
 # Dombus buses (1 or more serial RS485 buses attached to DomBus modules
 buses = {
@@ -68,7 +71,10 @@ mqtt = {
 telnet = {
     'enabled':      1,                  # 0 => telnet port not enabled, 1 => enabled
     'port':         8023,               # port to listen
-    'address':      '127.0.0.1',        # interface to bind to. '127.0.0.1' => localhost, '192.168.x.y' => LAN, '0.0.0.0' => all interfaces
+    'address':      '0.0.0.0',        # interface to bind to. '127.0.0.1' => localhost, '192.168.x.y' => LAN, '0.0.0.0' => all interfaces
 }
 
-from local.dombusgateway_conf_local import *
+try:
+    from local.dombusgateway_conf_local import *
+except:
+    print("Local configuration file local/dombusgateway_conf_local.py does not exist: loading default configuration")

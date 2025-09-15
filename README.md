@@ -1,6 +1,10 @@
 # DomBusGateway
 Gateway that **interfaces one or more DomBus networks of home automation modules with MQTT AutoDiscovery**
 
+## What is DomBusGateway Home Assistant addon
+
+This is an addon that can be automatically installed into HAOS (Home Assistant Operating System) by clicking on Settings -> Addon
+
 
 ## What is DomBus?
 
@@ -75,7 +79,7 @@ If TELNET port is enabled, **the user can connect DomBusGateway by Telnet to che
 
 
 
-# Installation
+# DomBusGateway installation
 
 ## In a normal Linux environment
 
@@ -95,10 +99,11 @@ When installed, to update the software with the last version, it's sufficient to
 
 __cd  /opt/DomBusGateway; git pull; systemctl restart dombusgateway__
 
+
+
 ## In HAOS / HASSOS (Home Asisstant Operating System)
 
-
-TODO: realize an addon for HAOS
+TODO: ADDON installation in HAOS
 
 
 ## DomBusGateway hardware

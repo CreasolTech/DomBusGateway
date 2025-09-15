@@ -18,8 +18,8 @@ CMD_ACK=0x08
 FRAME_OK = 0                # Frame OK
 FRAME_INVALID_CHECKSUM = 1  # Invalid checksum
 
-#DEBUG TX_RETRY=10                     #max number of retries
-TX_RETRY=1                     #max number of retries
+TX_RETRY=10                     #max number of retries
+#TX_RETRY=1                     #max number of retries #DEBUG
 TX_RETRY_TIME=80                # ms: retry every TX_RETRY_TIME * 2^retry
 PERIODIC_STATUS_INTERVAL=300    #seconds: refresh output status to device every 5 minutes
 MODULE_ALIVE_TIME=900           #if no frame is received in this time, module is considered dead (and periodic output status will not be transmitted)
@@ -161,7 +161,7 @@ PORTTYPES_HA = {
     0x00004000: {'p': 'sensor', 'device_class': 'temperature', 'unit_of_measurement': '°C', 'suggested_display_precision': 1},
     0x00008000: {'p': 'sensor', 'device_class': 'humidity', 'unit_of_measurement': '%', 'suggested_display_precision': 0},
     0x0000C000: {'p': 'sensor', 'device_class': 'temperature'},
-    0x00020000: {'p': 'binary_sensor', 'device_class': 'door', 'payload_on': 'open', 'payload_off': 'closed'},
+    0x00020000: {'p': 'binary_sensor', 'device_class': 'door'},
     0x01000000: {'p': 'cover'},
     0x02000000: {'p': 'number', 'device_class': 'voltage', 'min': 0, 'max':10, 'step':0.1, 'unit_of_measurement': 'V'},
     0x80000000: {},

@@ -13,13 +13,13 @@
 INSTALLDIR="/opt"
 
 function installPkg() {
-	if [ "$INSTALL" == "apt" ]; then
+	if [ "${INSTALL:0:3}" == "apt" ]; then
 		for pkg in $*; do 
 			if `dpkg -s $pkg >/dev/null 2>/dev/null` ; then
 				echo "*** Package $pkg already installed!"
 			else
 				echo "*** Installing $pkg... "
-				apt -y -f --allow-remove-essential install $pkg
+				${INSTALL} -y -f --allow-remove-essential install $pkg
 			fi
 		done
 	fi
@@ -35,9 +35,16 @@ echo -n "*** Checking if apt exists... "
 INSTALL=apt
 command -v apt
 if [ $? -ne 0 ]; then
-	echo "NO!"
-	echo "*** ERROR: This system does not use apt. Please send a email to tech@creasol.it with information about your system"
-	exit
+	command -v apt-get
+	if [ $? -eq 0 ]; then
+		INSTALL=apt-get
+	else
+		echo "NO!"
+		echo "*** ERROR: This system does not use apt nor apt-get. Please send a email to tech@creasol.it with information about your system"
+		echo -n "Kernel: "; uname -a
+		echo -n "Distribution: "; cat /etc/issue
+		exit
+	fi
 fi
 
 installPkg git gpw telnet

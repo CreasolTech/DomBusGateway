@@ -1,3 +1,4 @@
-asyncio_mqtt>=2.4.0
-paho_mqtt>=2.1.0
-pyserial_asyncio>=0.6
+aiomqtt==2.4.0
+#asyncio_mqtt==0.16.2
+paho_mqtt==2.1.0
+pyserial_asyncio==0.6
