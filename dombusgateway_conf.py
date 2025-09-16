@@ -24,8 +24,8 @@ datadir = 'data'    # directory where Devices configuration and other data will 
 #debugLevel = (DB.LOG_DEBUG | DB.LOG_DUMPDCMD | DB.LOG_MQTTRX | DB.LOG_MQTTTX | DB.LOG_DUMPTX | DB.LOG_DUMPRX | DB.LOG_TELNET)
 debugLevel = (DB.LOG_DEBUG | DB.LOG_DUMPRX | DB.LOG_DUMPTX | DB.LOG_DUMPDCMD | DB.LOG_TELNET)
 
-# logFile = "info.log"
-logFile = None      # print log to stdout    
+logFile = "/var/log/dombusgateway/info.log"
+# logFile = None      # print log to stdout    
 
 # Dombus buses (1 or more serial RS485 buses attached to DomBus modules
 buses = {
