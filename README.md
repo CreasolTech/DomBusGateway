@@ -182,12 +182,15 @@ In case that more than 1 bus is installed, this command should be performed afte
 # Troubleshooting
 
 ### It does not work
+
 Assure that software/addon is running. Also check the Log
 
 ### Cannot see anything in the Log
+
 Normally **debugLevel** is 7, but it can be increased to **15** (debug), **63** (debug + DomBus RX/TX), **399** (debug + MQTT TX/RX)
 
 ### Do not communicate with the DomBus serial bus
+
 Restart DomBusGateway and check in the Log that serial port exists and is opened correctly	
 
 
