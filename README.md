@@ -103,7 +103,13 @@ __cd  /opt/DomBusGateway; git pull; systemctl restart dombusgateway__
 
 ## In HAOS / HASSOS (Home Asisstant Operating System)
 
-TODO: ADDON installation in HAOS
+In this case the DomBusGateway addon should be installed in this ways: 
+
+- Install MQTT integration/component, if not already enabled: **Settings** > **Devices & Services** > **+ Add integrtion** > **MQTT** > **Add** and then select *Use the official Mosquitto MQTT broker add-on*
+
+[Install Mosquitto broker addon, if not already installed: **Settings** > **Add-ons** > **Add-on store** > **Mosquitto broker** > **Add** and then **Start**]: #
+
+- Click on **https://github.com/CreasolTech/homeassistant-addons** , then then under **DomBusGateway** click on the **blue button ADD ADD-ON REPOSITORY...** to add the DomBusGateway repository to your HomeAssistant.
 
 
 ## DomBusGateway hardware
