@@ -26,8 +26,10 @@ A list of DomBus modules can be found below.
 ## For what home automation systems can DomBus modules be used?
 
 DomBus modules equipped with DomBus protocol firmware can be used with:
-* [Domoticz](https://wiki.domoticz.com/Creasol_Dombus), using the **CreasolDomBus plugin**
+* [Domoticz](https://wiki.domoticz.com/Creasol_Dombus), using the [**CreasolDomBus plugin**](https://github.com/CreasolTech/CreasolDomBus)
+* [Home Assistant Operating System](https://www.home-assistant.io/), using the [**DomBusGateway addon**](https://github.com/CreasolTech/homeassistant-addons)
 * [Home Assistant](https://www.home-assistant.io/), [OpenHAB](https://www.openhab.org/), [NodeRED](https://nodered.org/), [ioBroker](https://www.iobroker.net/) and other systems supporting MQTT, by using the **DomBusGateway** software that acts as a **DomBus to MQTT-AD gateway**. 
+* Any home automation system supporting MQTT protocol, by using the [**DomBusGatewayPIS** microcomputer, providing DomBus2MQTT bridge](https://store.creasol.it/DomBusGateway)
 * Other building automation systems supporting **Modbus** protocol can use DomBus modules equipped with Modbus firmware.
 
 
@@ -83,7 +85,7 @@ If TELNET port is enabled, **the user can connect DomBusGateway by Telnet to che
 
 # DomBusGateway installation
 
-## In a normal Linux environment
+## Installing DomBusGateway in a normal Linux environment
 
 From the shell, run the command:
 
@@ -103,14 +105,14 @@ __cd  /opt/DomBusGateway; git pull; systemctl restart dombusgateway__
 
 
 
-## In HAOS / HASSOS (Home Asisstant Operating System)
+## Installing DomBusGateway add-on in HAOS / HASSOS (Home Asisstant Operating System)
 
 In this case the DomBusGateway addon should be installed: click on **https://github.com/CreasolTech/homeassistant-addons** and check the **DomBusGateway** section.
 
 ![DomBusGateway add-on for Home Assistant Operating system (HAOS)](https://images.creasol.it/dombusgateway_addon.webp)
 
 
-## DomBusGateway hardware
+## Using DomBusGateway hardware (single board computer with DomBusGateway software already installed)
 
 It's also possible to find some images for SBC/MiniPC that will be used as a real DomBusGateway hardware, with USB port to connect a DomBus network of modules by one USB/RS485 adapter, or to connect a USB hub in case that more USB ports are needed, and one LAN port or WiFi to connect the home automation system by MQTT or MQTT-AD.
 
