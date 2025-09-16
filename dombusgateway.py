@@ -1790,6 +1790,49 @@ class DomBusManager:
                     elif cmd.lower() in DB.HA_NAMES and val is not None:
                         log(DB.LOG_DEBUG,f"New ha attribute {cmd.lower()}")
                         ha[cmd.lower()] = val
+#                    elif cmdu[:5] == "DCMD(":
+#                        # parse DCMD configuration
+#                       errmsg=''
+#                        d = [ DCMD_IN_EVENTS['NONE'], 0, 0, 0, 0, DCMD_OUT_CMDS['NONE'], 0 ] #temp list to store a DCMD command
+#                        opt = re.sub("ERROR=.*", "", opt) #remove any Error=blablabla from the command
+#                        optu = opt.upper()
+#                        inputs = re.search('DCMD\((.+)\)=(.+\..+:.+)', optu)
+#                        if inputs:
+#                            #syntax of DCMD command semms to be ok
+#                            inArr = inputs.group(1).split(':')    #inArr=['Value','0','20.5'] (inputs)
+#                outArr=inputs.group(2).split(':')   #
+#                if (len(inArr)>=1):
+#                    Log(LOG_INFO,"DCMD: "+opt+" Input event="+str(inArr)+" Output command="+str(outArr))
+#                    if (inArr[0] in DCMD_IN_EVENTS):
+#                        d[0]=DCMD_IN_EVENTS[inArr[0]]
+#                        d[1]=0
+#                        d1ok=0
+#                        d[2]=0
+#                        d2ok=0
+#                        if (len(inArr)>=2):
+#                            # inArr[1] contains a temperature, humidity, voltage,... convert this value to a integer representation used by DomBus
+#                            try:
+#                                d[1]=float(inArr[1])
+#                            except:
+#                                errmsg+="ValueLow should be a number, like 20.5. "
+#                                d[1]=0
+#                            else:
+#                                d1ok=1
+#
+#                            try:
+#                                d[2]=float(inArr[2])
+#                            except:
+#                                errmsg+="ValueHigh should be a number, like 21.2. "
+#                                d[2]=0
+#                            else:
+#                                d2ok=1
+#                            if (inArr[0]=='VALUE'):
+#                                #convert d[1] and d[2] in temperature, RH, voltage, value according to the sensor type and A and B parameters
+#                                if (d1ok):
+#                                    d[1]=convertValueToDombus(Devices[Unit],d[1])
+#                                if (d2ok):
+#                                    d[2]=convertValueToDombus(Devices[Unit],d[2])
+#                                Log(LOG_DEBUG,"d[1]="+str(d[1])+" d[2]="+str(d[2]))
                     else:
                         log(DB.LOG_DEBUG,f"Ignoring {cmd}")
                     
@@ -1932,7 +1975,7 @@ if __name__ == "__main__":
     # parsing args...
     parser = argparse.ArgumentParser(prog='DomBusGateway', description='DomBus 2 MQTT bridge')
 
-    parser.add_argument('--debug_level', '-d', type=int, default=7,
+    parser.add_argument('--debug_level', '-d', type=int, default=55+768,
             help='Debug level: 0=OFF, 1=Errors, 3=Warnings, 7=Info, 15=Debug, +16=RX, +32=TX, +64=DCMD, +256=MQTTRX, +512=MQTTTX, +65536=Telnet')
     parser.add_argument('--bus1_port', '-b1', type=str, default='',
             help='Serial port for bus1, for example /dev/ttyUSB0')

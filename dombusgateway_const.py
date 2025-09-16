@@ -161,7 +161,7 @@ PORTTYPES_HA = {
     0x00004000: {'p': 'sensor', 'device_class': 'temperature', 'unit_of_measurement': '°C', 'suggested_display_precision': 1},
     0x00008000: {'p': 'sensor', 'device_class': 'humidity', 'unit_of_measurement': '%', 'suggested_display_precision': 0},
     0x0000C000: {'p': 'sensor', 'device_class': 'temperature'},
-    0x00020000: {'p': 'binary_sensor', 'device_class': 'door'},
+    0x00020000: {'p': 'binary_sensor', 'device_class': 'door', 'payload_on': 'ON', 'payload_off': 'OFF'},
     0x01000000: {'p': 'cover'},
     0x02000000: {'p': 'number', 'device_class': 'voltage', 'min': 0, 'max':10, 'step':0.1, 'unit_of_measurement': 'V'},
     0x80000000: {},
