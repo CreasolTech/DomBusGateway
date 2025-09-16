@@ -193,7 +193,13 @@ Normally **debugLevel** is 7, but it can be increased to **15** (debug), **63** 
 
 Restart DomBusGateway and check in the Log that serial port exists and is opened correctly	
 
+### How to update DomBusGateway software?
 
+```
+cd /opt/DomBusGateway
+git pull
+systemctl restart dombusgateway
+```
 
 
 # DomBusEVSE module to build a DIY EV charger
