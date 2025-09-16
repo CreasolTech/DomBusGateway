@@ -178,6 +178,20 @@ In case that more than 1 bus is installed, this command should be performed afte
 * _quit_: exit from telnet session.
 
 
+
+# Troubleshooting
+
+It does not work
+: Assure that software/addon is running. Also check the Log
+
+Cannot see anything in the Log
+: Normally **debugLevel** is 7, but it can be increased to 15 (debug), 63 (debug + DomBus RX/TX), 399 (debug + MQTT TX/RX)
+
+
+
+
+
+
 # DomBusEVSE module to build a DIY EV charger
 Wiring diagrams to make the charging station, single phase or three phase, is available at <a href="https://www.creasol.it/EVSE">www.creasol.it/EVSE</a>
 

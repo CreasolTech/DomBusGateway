@@ -256,7 +256,6 @@ class DomBusDevice():
         else:
             if 'device_class' in self.ha and self.ha['device_class'] in ('door','window'):
                 self.valueHA = 'OFF' if self.value == 0 or self.value == 2 else 'ON'
-                log(DB.LOG_DEBUG, f'binary sensor type door: value={self.value}, valueHA={self.valueHA}')
             else:
                 self.valueHA = 'Off' if self.value == 0 else 'On'
             
