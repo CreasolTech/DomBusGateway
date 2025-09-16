@@ -8,7 +8,7 @@ This is an addon that can be automatically installed into HAOS (Home Assistant O
 
 ## What is DomBus?
 
-It's a custom protocol developed by [Creasol](https://www.creasol.it/domotics) to communicate with home automation modules using a **RS485 serial bus, made by a standard alarm cable within 4 wires**, 2 for data at 115200bps, 2 for 12-24V to supply all devices.
+It's a **custom protocol** developed by [Creasol](https://www.creasol.it/domotics) to communicate with home automation modules using a **RS485 serial bus, made by a standard alarm cable within 4 wires**, 2 for data at 115200bps, 2 for 12-24V to supply all devices.
 
 It's a **multi-master protocol**, where each **DomBus module can start communicating to the controller for example when an input changes** (for example a counter, alarm sensor, pushbutton), with a low latency (typically less than 100ms).
 
@@ -25,7 +25,7 @@ A list of DomBus modules can be found below.
 
 ## For what home automation systems can DomBus modules be used?
 
-DomBus modules equipped with DomBus firmware can be used with:
+DomBus modules equipped with DomBus protocol firmware can be used with:
 * [Domoticz](https://wiki.domoticz.com/Creasol_Dombus), using the **CreasolDomBus plugin**
 * [Home Assistant](https://www.home-assistant.io/), [OpenHAB](https://www.openhab.org/), [NodeRED](https://nodered.org/), [ioBroker](https://www.iobroker.net/) and other systems supporting MQTT, by using the **DomBusGateway** software that acts as a **DomBus to MQTT-AD gateway**. 
 * Other building automation systems supporting **Modbus** protocol can use DomBus modules equipped with Modbus firmware.
@@ -36,7 +36,7 @@ DomBus modules equipped with DomBus firmware can be used with:
 **DomBus firmware + DomBusGateway** implementation is quick and simple, because **all devices/entities are created automatically** without any specific integration. **Enable MQTT integration, start DomBusGateway software, connect one or more DomBus modules, and all DomBus ports are immediately visible in your home automation system**.
 Also, DomBus protocol is a must in case that DCMD, pushbuttons, alarm sensors and counters are needed.
 
-Modbus may be used for relay modules, EVSE module (to make your own electric vehicle charging wallbox), Dual axis solar tracker. **Modbus is not recommended in case that pushbuttons, alarm sensors and counters have to be used**, because Modbus is a master-slave protocol where the controller have to poll continuosly all Modbus modules to get their input status, introducing delays.
+Modbus may be used for relay modules, EVSE module (to make your own electric vehicle charging wallbox using DomBusEVSE module), single or dual axis solar tracker (using DomBusTracker module). **Modbus is not recommended in case that pushbuttons, alarm sensors and counters have to be used**, because Modbus is a master-slave protocol where the controller have to poll continuosly all Modbus modules to get their input status, introducing delays.
 
 ## Example: DomBusEVSE module used to make a Smart Wallbox with Home Assistant
 
@@ -50,6 +50,8 @@ More information about the DomBusEVSE module, that can be used to make a home ma
 		
 ![DomBusGateway, a DomBus 2 MQTT bridge](https://images.creasol.it/dombusgateway_block1.webp)
 ## How does DomBusGateway work?
+
+DomBusGateway software, hardware and addons work with one or more networks of DomBus modules equipped with DomBus protocol firmware.  Modbus firmware is not supported!
 
 Once executed, using the command _python3 dombusgateway.py &_ , it opens **one or more serial ports connected to DomBus modules** (to get a reliable large network, it's possible to divide the DomBus network in trunks with 20-30 modules/each, or divide the building by floors/zones). It's also possible to use **WiFi/LAN RS485 modules that provide a virtual serial interface**, to get a wireless connection between the main controller where DomBusateway runs, and RS485 port physically connected to the DomBus modules. 
 
@@ -103,13 +105,9 @@ __cd  /opt/DomBusGateway; git pull; systemctl restart dombusgateway__
 
 ## In HAOS / HASSOS (Home Asisstant Operating System)
 
-In this case the DomBusGateway addon should be installed in this ways: 
+In this case the DomBusGateway addon should be installed: click on **https://github.com/CreasolTech/homeassistant-addons** and check the **DomBusGateway** section.
 
-- Install MQTT integration/component, if not already enabled: **Settings** > **Devices & Services** > **+ Add integrtion** > **MQTT** > **Add** and then select *Use the official Mosquitto MQTT broker add-on*
-
-[Install Mosquitto broker addon, if not already installed: **Settings** > **Add-ons** > **Add-on store** > **Mosquitto broker** > **Add** and then **Start**]: #
-
-- Click on **https://github.com/CreasolTech/homeassistant-addons** , then then under **DomBusGateway** click on the **blue button ADD ADD-ON REPOSITORY...** to add the DomBusGateway repository to your HomeAssistant.
+![DomBusGateway add-on for Home Assistant Operating system (HAOS)](https://images.creasol.it/dombusgateway_addon.webp)
 
 
 ## DomBusGateway hardware
