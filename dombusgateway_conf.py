@@ -29,8 +29,8 @@ logFile = "/var/log/dombusgateway/info.log"
 
 # Dombus buses (1 or more serial RS485 buses attached to DomBus modules
 buses = {
-    1: { 'serialPort': '/dev/ttyUSBdombus1', }, # first bus serving ground floor
-    2: { 'serialPort': '/dev/ttyUSBdombus2', }, # second bus serving 2nd floor
+    1: { 'serialPort': '/dev/ttyUSB0', }, # first bus serving ground floor
+#    2: { 'serialPort': '/dev/ttyUSBdombus2', }, # second bus serving 2nd floor
 }
 
 # If more than one serial port is used, it's better to identify the USB ports connected to the USB/RS485 adapters: check info below
