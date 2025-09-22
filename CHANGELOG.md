@@ -13,8 +13,10 @@ For info about changes in the DomBusGateway features, please check github at htt
 ## [Unreleased] 
 
 ### Added
+* In line arguments to overwrite configuration set in local/dombusgateway_conf_local.py: execute ```python3 dombusgateway.py -h``` to check available parameters
 
 ### Fixed
+* Immediate Dombus packet transmission and retry management
 
 ### Changed
 

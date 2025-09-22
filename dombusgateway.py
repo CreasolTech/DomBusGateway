@@ -4,7 +4,7 @@
 # Written by Creasol - www.creasol.it
 #
 
-VERSION = "0.1"
+VERSION = "0.2"
 
 from dombusgateway_conf import *
 
@@ -766,6 +766,7 @@ class DomBusProtocol(asyncio.Protocol):
         self.txbuffer = b""
         self.txQueue = dict()
         self.checksumValue = 0
+        self.retryTime = 0 # time since epoch, in ms, when a frame have to be TXed again
 
     def connection_made(self, transport):
         """Called when the connection is made."""
@@ -968,7 +969,7 @@ class DomBusProtocol(asyncio.Protocol):
                                                     if cmdLen >= 12:
                                                         arg11 = frame[portIdx+11]
                 self.setID(port)    # set self.devID and self.devIDname
-                self.moduleUpdate() # update modules dictionary to keep trace of running modules
+                self.moduleUpdate(1) # update modules dictionary to keep trace of running modules
                 # check if device exists
                 if cmdAck == 0 and self.devID not in Devices:
                     # send frame to ask configuration
@@ -1250,12 +1251,21 @@ class DomBusProtocol(asyncio.Protocol):
 
                 frameIdx = frameIdx + cmdLen + 1
                 
-    def moduleUpdate(self):
-        """Update Modules[self.devID], used to store which Modules have been RXed"""
+    def moduleUpdate(self, what: int = 0):
+        """
+            Update Modules[self.devID], used to store which Modules have been RXed
+            moduleUpdate(1) when a packet is RXed
+            moduleUpdate(2) when a packet is being TXed
+        """
+
         if self.frameAddr not in Modules:
-            Modules[self.frameAddr] = [ int(time.time()), int(time.time()*1000), int(time.time())+3-DB.PERIODIC_STATUS_INTERVAL, 0, 'N.A.', 'N.A.']
-        else:
+            Modules[self.frameAddr] = [0, 0, int(time.time())+3-DB.PERIODIC_STATUS_INTERVAL, 0, 'N.A.', 'N.A.']
+            
+        if what & 1: # RX packet
             Modules[self.frameAddr][DB.LASTRX] = time.time()
+
+        if what & 2:  # TX packet
+            Modules[self.frameAddr][DB.LASTTX] = int(time.time()*1000)
 
     def txQueueAddConfig16(self, frameAddr, port, subcmd, value):
         """Send a CMD_CONFIG with a SUBCMD and 16bit value"""
@@ -1268,10 +1278,12 @@ class DomBusProtocol(asyncio.Protocol):
         #cmdLen=length of data after command (port+args[])
         sec=int(time.time())
         ms=int(time.time()*1000)
+        self.moduleUpdate(2) # Update Modules[frameAddr]
         if len(self.txQueue)==0 or frameAddr not in self.txQueue:
             #create self.txQueue[frameAddr]
             self.txQueue[frameAddr]=[[cmd, cmdLen, cmdAck, port, args, retries]]
             log(DB.LOG_DEBUG, f"txQueueAdd(): frameAddr does not exist! frameAddr={frameAddr:06x} cmd={(cmd|cmdAck|cmdLen):02x} port={hex(port)}")
+            Modules[frameAddr][DB.LASTRETRY] = 0 # Init retry value for this module (no frames were in the queue)
         else:
             found=0
             for f in self.txQueue[frameAddr]:
@@ -1289,7 +1301,6 @@ class DomBusProtocol(asyncio.Protocol):
                 self.txQueue[frameAddr].append([cmd,cmdLen,cmdAck,port,args,retries])
                 # log(DB.LOG_DEBUG, f"txQueueAdd(): add frame to the queue: frameAddr={frameAddr:06x} cmd={(cmd|cmdAck|cmdLen):02x} port={hex(port)}")
             #txQueueRetry: don't modify it... transmit when retry time expires (maybe now or soon)
-        self.moduleUpdate() # Update Modules[frameAddr]
         if now:
             Modules[frameAddr][DB.LASTTX] = 0 # Transmit now
 
@@ -1328,20 +1339,22 @@ class DomBusProtocol(asyncio.Protocol):
     def send(self):
         """Read txQueue[] and create frames, one for each address, and start transmitting"""
         # txQueue[frameAddr]=[[cmd, cmdLen, cmdAck, port, [arg1, arg2, arg3, ...], retries]]
+        timeNextTx = 0  # next transmission time (since Epoch), in ms            
         tx = 0
         sec = int(time.time())
         ms = int(time.time() * 1000)
         # scan all Modules
         delModules = []
         for frameAddr, module in Modules.items():
-            timeSinceLastTx = ms-module[DB.LASTTX]        #number of milliseconds since last TXed frame
-            timeSinceLastRx = sec-module[DB.LASTRX]       #number of seconds since last RXed frame
-            timeSinceLastStatus = sec-module[DB.LASTSTATUS]     #number of seconds since last TXed output status
             if frameAddr in self.txQueue and len(self.txQueue[frameAddr])>0:
-                retry = module[DB.LASTRETRY]                         #number of retris (0,1,2,3...): used to compute the retry period
-                if retry > DB.TX_RETRY:
-                    retry = DB.TX_RETRY
-                if timeSinceLastTx > (DB.TX_RETRY_TIME << (retry+1)):
+                # timeSinceLastTx = ms-module[DB.LASTTX]        #number of milliseconds since last TXed frame
+                # timeLastTx = module[DB.LASTTX]
+                module[DB.LASTRETRY]                         #number of retry (0,1,2,3...): used to compute the retry period
+                if module[DB.LASTRETRY] > DB.TX_RETRY:
+                    module[DB.LASTRETRY] = DB.TX_RETRY
+                timeNextRetry = module[DB.LASTTX] + (DB.TX_RETRY_TIME << (module[DB.LASTRETRY]+1)) # time for the next transmission, for this module
+                if timeNextRetry <= ms:
+                    # Must transmit now
                     tx=1
                     log(DB.LOG_DEBUG, f"send(): TX frame for {self.frameAddr:06x}")
                     self.txbuffer = bytearray()
@@ -1357,10 +1370,14 @@ class DomBusProtocol(asyncio.Protocol):
                     # Transmit ACK first, then commands
                     for txq in self.txQueue[frameAddr][:]:    #iterate a copy of self.txQueue[frameAddr]
                         (cmd, cmdLen, cmdAck, port, args, retry) = txq
-                        if cmdAck: txQueueNow.append(txq)
+                        if cmdAck:
+                            # ACK transmitted first
+                            txQueueNow.append(txq)
                     for txq in self.txQueue[frameAddr][:]:    #iterate a copy of txQueue[frameAddr]
                         (cmd, cmdLen, cmdAck, port, args, retry) = txq
-                        if cmdAck==0: txQueueNow.append(txq)
+                        if cmdAck==0: 
+                            # Command to be transmitted
+                            txQueueNow.append(txq)
 
                     for txq in txQueueNow:    #iterate txQueueNow
                         #[cmd,cmdLen,cmdAck,port,[*args]]
@@ -1384,6 +1401,11 @@ class DomBusProtocol(asyncio.Protocol):
                             self.txQueue[frameAddr].remove(txq)
                         else:
                             txq[DB.TXQ_RETRIES] = retry-1   #command, no ack: decrement retry
+                            # set time for the next retransmission
+                            if timeNextTx == 0 or timeNextTx < (ms + DB.TX_RETRY_TIME << (module[DB.LASTRETRY]+1)):
+                                timeNextTx = ms + (DB.TX_RETRY_TIME << (module[DB.LASTRETRY]+1))
+                                print(f"send(): frameAddr={frameAddr:06x} retry={module[DB.LASTRETRY]} waitTime={DB.TX_RETRY_TIME << (module[DB.LASTRETRY]+1)} queue={self.txQueue[frameAddr]}")
+
                     self.txbuffer[DB.FRAME_LEN] = txbufferIndex - DB.FRAME_HEADER
                     module[DB.LASTRETRY] += 1    #increment RETRY to multiply the retry period * 2
                     if (module[DB.LASTRETRY] >= DB.TX_RETRY):
@@ -1397,11 +1419,15 @@ class DomBusProtocol(asyncio.Protocol):
                     self.dump(self.txbuffer, txbufferIndex, "TX", frameAddr >> 16, DB.FRAME_OK)
                     Modules[frameAddr][DB.LASTTX] = ms
                 else:
-                    # if timeSinceLastTx <= (DB.TX_RETRY_TIME << (retry+1)):
-                    log(DB.LOG_DEBUG, f"send(): frame for {frameAddr:06x} will be transmitted later: retry={retry} timeSinceLastTx={timeSinceLastTx} <= {DB.TX_RETRY_TIME << (retry+1)}")
+                    # if timeNextRetry > ms: must wait!
+                    log(DB.LOG_DEBUG, f"send(): {frameAddr:06x} Frame will be transmitted later")
+                    if timeNextTx==0 or timeNextRetry < timeNextTx:
+                        timeNextTx = timeNextRetry
 
             else: #No frame to be TXed for this frameAddr
                 #check that module is active
+                print(f"send(): frameAddr={frameAddr:06x} and queue is empty for this frameAddr")
+                timeSinceLastRx = sec-module[DB.LASTRX]       #number of seconds since last RXed frame
                 if timeSinceLastRx > DB.MODULE_ALIVE_TIME:
                     # too long time since last RX from this module: remove it from Modules
                     if frameAddr: 
@@ -1425,6 +1451,7 @@ class DomBusProtocol(asyncio.Protocol):
             if d in Modules:
                 del Modules[d]
 
+
         if (tx==0): #nothing has been transmitted: send outputs status for device with older lastStatus
             olderFrameAddr=0
             olderTime=sec
@@ -1440,7 +1467,23 @@ class DomBusProtocol(asyncio.Protocol):
                 #Log(LOG_DEBUG,"send(): Transmit outputs Status for "+hex(olderFrameAddr))
                 self.txOutputsStatus(olderFrameAddr)
 
+        if timeNextTx != 0 and timeNextTx > ms:
+            # another frame must be transmitted at this time (in ms): timeNextTx
+            if self.retryTime == 0 or self.retryTime < ms:
+                # create a task that wait for the retry time and then execute send() again
+                self.retryTime = timeNextTx
+                print(f"timeNextTx={timeNextTx}, waitTime={timeNextTx - ms}")
+                asyncio.create_task(self._retrySend(timeNextTx - ms))
+                    
 
+    async def _retrySend(self, waitTime):
+        """Wait for waitTime (in milliseconds), then execute send() again"""
+        if waitTime>0:
+            waitTime /= 1000    # Convert in seconds
+            print(f"_retrySend(): waiting for {waitTime}s...")
+            await asyncio.sleep(waitTime)
+            self.retryTime = 0
+            self.send()
 
 class DomBusManager:
     def __init__(self):
@@ -2063,7 +2106,7 @@ def saveData():
     with open(devicesPath, 'w', encoding='utf-8') as f:
         json.dump({k: v.to_dict() for k, v in Devices.items()}, f, indent=2)
 
-####################################################################### main #################################################################################
+####################################################################### main() #################################################################################
 
 if __name__ == "__main__":
     async def main():
@@ -2094,7 +2137,7 @@ if __name__ == "__main__":
     # parsing args...
     parser = argparse.ArgumentParser(prog='DomBusGateway', description='DomBus 2 MQTT bridge')
 
-    parser.add_argument('--debug_level', '-d', type=int, default=55+768,
+    parser.add_argument('--debug_level', '-d', type=int, default=-1,
             help='Debug level: 0=OFF, 1=Errors, 3=Warnings, 7=Info, 15=Debug, +16=RX, +32=TX, +64=DCMD, +256=MQTTRX, +512=MQTTTX, +65536=Telnet')
     parser.add_argument('--bus1_port', '-b1', type=str, default='',
             help='Serial port for bus1, for example /dev/ttyUSB0')
@@ -2106,7 +2149,7 @@ if __name__ == "__main__":
             help='Serial port for bus4, for example /dev/ttyUSB3')
     parser.add_argument('--mqtt_host', '-mh', type=str, default='',
             help='Hostname or IP address of the MQTT broker, for example homeassistant.local')
-    parser.add_argument('--mqtt_port', '-mp', type=int,
+    parser.add_argument('--mqtt_port', '-mp', type=int, default=-1,
             help='TCP port of the MQTT broker, for example 1883')
     parser.add_argument('--mqtt_user', '-mu', type=str, default='',
             help='Username that can access the MQTT broker, for example dombus. On HAOS, a user must be created with this name')
@@ -2114,7 +2157,7 @@ if __name__ == "__main__":
             help='Password for the user accessing the MQTT broker')
 
     args = parser.parse_args()
-    if args.debug_level:    debugLevel = args.debug_level
+    if args.debug_level and args.debug_level>=0:    debugLevel = args.debug_level
     if args.bus1_port and args.bus1_port != '':
         if 1 not in buses: buses[1]={}     
         buses[1]['serialPort']=args.bus1_port
@@ -2129,7 +2172,7 @@ if __name__ == "__main__":
                     buses[4]['serialPort']=args.bus4_port
     if args.mqtt_host and args.mqtt_host != '':
         mqtt['host'] = args.mqtt_host
-    if args.mqtt_port:
+    if args.mqtt_port and args.mqtt_port>0:
         mqtt['port'] = args.mqtt_port
         print(f"mqtt_port={mqtt['port']}")
     if args.mqtt_user and args.mqtt_user != '':
