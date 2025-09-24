@@ -176,7 +176,8 @@ In case that more than 1 bus is installed, this command should be performed afte
 ![setport command example](https://images.creasol.it/dombusgateway_setport.webp) \
 In www.creasol.it it's possible to check information about the module to know which configurations can be assumed by each port (check the associated table). Also, in case of Home Assistant, it's possible to define for each port the desired platform and class, in this way:\
 _setport 7 IN_DIGITAL,p=binary_sensor,device_class=motion_ if port 7 is connected to a PIR (infrared motion sensor) and port have to be configured as **binary_sensor with motion class** \
-_setport 7 device_class=motion_ if the port is already configured as input and **only the class have to be changed**
+_setport 7 device_class=motion_ if the port is already configured as input and **only the class have to be changed** \
+_setport 7 SENSOR_ALARM,device_class=motion_ if the **PIR is a double-biased or triple-biased type** \
 
 * _quit_: exit from telnet session.
 
