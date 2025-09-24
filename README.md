@@ -172,9 +172,11 @@ In case that more than 1 bus is installed, this command should be performed afte
 * _setport 1 HWADDR=101_ : **set the new address 101 for the current module**. A unique address should be specified, in hex format, from 1 to efff.
 
 * _setport PORT CONFIGURATION_ : **change the configuration of the specified port**. For example _setport 1 IN_COUNTER,DIVIDER=2000_ to configure port1 in counter mode, type energy meter with pulsed output, 2000 pulses / kWh. This command can be issued only after a _showmodule ADDR_ to select the appropriate module.<br clear="all" /> 
-![setport command example](https://images.creasol.it/setport.webp)
-![setport command example](https://images.creasol.it/dombusgateway_setport.webp)
-In www.creasol.it it's possible to check information about the module to know which configurations can be assumed by each port (check the associated table). Also, in case of Home Assistant, it's possible to define for each port the desired platform and class, in this way: for example, if port 7 is connected to a PIR (infrared motion sensor), set that port as a binary_sensor with motion class: _setport 7 IN_DIGITAL,p=binary_sensor,device_class=motion_ or, in case the port is already configured as input, simply send the command _setport 7 device_class=motion_ .
+![setport command example](https://images.creasol.it/setport.webp) \
+![setport command example](https://images.creasol.it/dombusgateway_setport.webp) \
+In www.creasol.it it's possible to check information about the module to know which configurations can be assumed by each port (check the associated table). Also, in case of Home Assistant, it's possible to define for each port the desired platform and class, in this way:\
+_setport 7 IN_DIGITAL,p=binary_sensor,device_class=motion_ if port 7 is connected to a PIR (infrared motion sensor) and port have to be configured as binary_sensor with motion class \
+_setport 7 device_class=motion_ if the port is already configured as input and only the class have to be changed
 
 * _quit_: exit from telnet session.
 
