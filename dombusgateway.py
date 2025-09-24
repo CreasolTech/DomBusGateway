@@ -259,10 +259,11 @@ class DomBusDevice():
             self.valueHA = int(self.value * 100) / 100  # 1% precision
             
         else:
-            if 'device_class' in self.ha and self.ha['device_class'] in ('door','window'):
-                self.valueHA = 'OFF' if self.value == 0 or self.value == 2 else 'ON'
-            else:
-                self.valueHA = 'Off' if self.value == 0 else 'On'
+#            if 'device_class' in self.ha and self.ha['device_class'] in ('door','window','motion'):
+#                self.valueHA = 'OFF' if self.value == 0 or self.value == 2 else 'ON'
+#            else:
+#                self.valueHA = 'Off' if self.value == 0 else 'On'
+            self.valueHA = 'OFF' if self.value == 0 or self.value == 2 else 'ON'
             
     def updateFromBus(self, what, value:int = None, counterValue:int = None, configOptions:str = None):
         """ Data received from bus: update device and send command to MQTT, ..."""
@@ -520,17 +521,21 @@ class DomBusDevice():
                     if value < 0:
                         value += 65536  # Negative power => convert to int(16)
                 if error == False:
-                    log(DB.LOG_DEBUG, f"TX to DomBus module {self.frameAddr:06x}, on port {self.port:02x}, value={value}")
-                    if self.port < 0x80:
-                        buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_SET, 2, 0, self.port, [value], DB.TX_RETRY, 1)
-                    elif self.port >= 0x100 and self.port < 0x1000:
-                        # send DB.CMD_CONFIG, port (port&0x7f), DB.SUBCMD_SETx (port>>8), 16bit value
-                        buses[self.busID]['protocol'].txQueueAddConfig16(self.frameAddr, self.port & 0x7f, self.port >> 8, value)
-                    self.updateFromBus(DB.UPDATE_VALUE) # Send back value to update HA
+                    if buses[self.busID]['protocol'] != None:
+                        log(DB.LOG_DEBUG, f"TX to DomBus module {self.frameAddr:06x}, on port {self.port:02x}, value={value}")
+                        if self.port < 0x80:
+                            buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_SET, 2, 0, self.port, [value], DB.TX_RETRY, 1)
+                        elif self.port >= 0x100 and self.port < 0x1000:
+                            # send DB.CMD_CONFIG, port (port&0x7f), DB.SUBCMD_SETx (port>>8), 16bit value
+                            buses[self.busID]['protocol'].txQueueAddConfig16(self.frameAddr, self.port & 0x7f, self.port >> 8, value)
+                        self.updateFromBus(DB.UPDATE_VALUE) # Send back value to update HA
+                    else:
+                        # serial bus is not active
+                        # TODO: request activation of serial connection
+                        log(DB.LOG_WARN, f"updateToBus(): serial port for bus {self.busID} is not active: discharge frame for DomBus module {self.frameAddr:06x}")
 
-
-        log(DB.LOG_DEBUG, "Call send()...")
-        buses[self.busID]['protocol'].send()    # Transmit, if needed
+        if buses[self.busID]['protocol']:
+            buses[self.busID]['protocol'].send()    # Transmit, if needed
 
 
     def updateDeviceConfig(self, portType: int, portOpt: int, cal: int, dcmd: dict, dcmdConf: str, options: dict, haOptions: dict, value: int = None):
@@ -776,6 +781,7 @@ class DomBusProtocol(asyncio.Protocol):
     def connection_lost(self, exc):
         """Called when the connection is lost or closed."""
         log(DB.LOG_ERR, f"Connection lost on bus {self.busID}: {exc}")
+        buses[self.busID]['protocol'] = None
         
 
     def setID(self, port):
@@ -1346,7 +1352,7 @@ class DomBusProtocol(asyncio.Protocol):
         # scan all Modules
         delModules = []
         for frameAddr, module in Modules.items():
-            if frameAddr in self.txQueue and len(self.txQueue[frameAddr])>0:
+            if frameAddr != 0 and frameAddr in self.txQueue and len(self.txQueue[frameAddr])>0:
                 # timeSinceLastTx = ms-module[DB.LASTTX]        #number of milliseconds since last TXed frame
                 # timeLastTx = module[DB.LASTTX]
                 module[DB.LASTRETRY]                         #number of retry (0,1,2,3...): used to compute the retry period
@@ -1356,7 +1362,6 @@ class DomBusProtocol(asyncio.Protocol):
                 if timeNextRetry <= ms:
                     # Must transmit now
                     tx=1
-                    log(DB.LOG_DEBUG, f"send(): TX frame for {self.frameAddr:06x}")
                     self.txbuffer = bytearray()
                     self.txbuffer.append(DB.PREAMBLE)
                     self.txbuffer.append((frameAddr >> 8) & 0xff)       #dstAddr
@@ -1404,7 +1409,6 @@ class DomBusProtocol(asyncio.Protocol):
                             # set time for the next retransmission
                             if timeNextTx == 0 or timeNextTx < (ms + DB.TX_RETRY_TIME << (module[DB.LASTRETRY]+1)):
                                 timeNextTx = ms + (DB.TX_RETRY_TIME << (module[DB.LASTRETRY]+1))
-                                print(f"send(): frameAddr={frameAddr:06x} retry={module[DB.LASTRETRY]} waitTime={DB.TX_RETRY_TIME << (module[DB.LASTRETRY]+1)} queue={self.txQueue[frameAddr]}")
 
                     self.txbuffer[DB.FRAME_LEN] = txbufferIndex - DB.FRAME_HEADER
                     module[DB.LASTRETRY] += 1    #increment RETRY to multiply the retry period * 2
@@ -1420,13 +1424,11 @@ class DomBusProtocol(asyncio.Protocol):
                     Modules[frameAddr][DB.LASTTX] = ms
                 else:
                     # if timeNextRetry > ms: must wait!
-                    log(DB.LOG_DEBUG, f"send(): {frameAddr:06x} Frame will be transmitted later")
                     if timeNextTx==0 or timeNextRetry < timeNextTx:
                         timeNextTx = timeNextRetry
 
             else: #No frame to be TXed for this frameAddr
                 #check that module is active
-                print(f"send(): frameAddr={frameAddr:06x} and queue is empty for this frameAddr")
                 timeSinceLastRx = sec-module[DB.LASTRX]       #number of seconds since last RXed frame
                 if timeSinceLastRx > DB.MODULE_ALIVE_TIME:
                     # too long time since last RX from this module: remove it from Modules
@@ -1464,7 +1466,6 @@ class DomBusProtocol(asyncio.Protocol):
             # transmit only the output status of the older device, if last time I transmitted the status was at least PERIODIC_STATUS_INTERVAL seconds ago
             if (sec-olderTime > DB.PERIODIC_STATUS_INTERVAL):
                 Modules[olderFrameAddr][DB.LASTSTATUS]=sec+(olderFrameAddr&0x000f)   #set current time + extra seconds to avoid all devices been refresh together
-                #Log(LOG_DEBUG,"send(): Transmit outputs Status for "+hex(olderFrameAddr))
                 self.txOutputsStatus(olderFrameAddr)
 
         if timeNextTx != 0 and timeNextTx > ms:
@@ -1472,7 +1473,6 @@ class DomBusProtocol(asyncio.Protocol):
             if self.retryTime == 0 or self.retryTime < ms:
                 # create a task that wait for the retry time and then execute send() again
                 self.retryTime = timeNextTx
-                print(f"timeNextTx={timeNextTx}, waitTime={timeNextTx - ms}")
                 asyncio.create_task(self._retrySend(timeNextTx - ms))
                     
 
@@ -1480,7 +1480,6 @@ class DomBusProtocol(asyncio.Protocol):
         """Wait for waitTime (in milliseconds), then execute send() again"""
         if waitTime>0:
             waitTime /= 1000    # Convert in seconds
-            print(f"_retrySend(): waiting for {waitTime}s...")
             await asyncio.sleep(waitTime)
             self.retryTime = 0
             self.send()
@@ -1492,6 +1491,7 @@ class DomBusManager:
         self.mqttPublishQueue = Queue() # Queue for MQTT messages
         self.selectedBus = 1        # default bus selected for command line interface (telnet)
         self.selectedModule = 0     # address of module selected by CLI (telnet)
+        self.retryConnection = 10   # Seconds to wait before retrying to open serial connections
 
         self.commands = {
             'help':     {
@@ -1517,24 +1517,60 @@ class DomBusManager:
                 'help': 'Exit from telnet session' },
         }
 
-    async def add_bus(self, busID, port, baudrate=115200):
-        """Add a new serial bus."""
-        if busID in buses and 'protocol' in buses[busID]:
-            raise ValueError(f"Bus ID {busID} already exists.")
+    async def check_buses(self):
+        """Check serial ports and start connections. Restart serial connection in case of failure"""
+        while True:            
+            for bus in buses:
+                if 'protocol' not in buses[bus] or buses[bus]['protocol'] is None:
+                    await manager.add_bus(busID=bus, port=buses[bus]['serialPort'], baudrate=115200)
+                    log(DB.LOG_INFO, f"check_buses(): start connection to serial port {buses[bus]['serialPort']}, bus {bus}")
 
+            await asyncio.sleep(self.retryConnection)
+
+
+
+#    async def add_bus(self, busID, port, baudrate=115200):
+#        """Add a new serial bus. Used until 2025-09-22"""
+#        if busID in buses and 'protocol' in buses[busID]:
+#            raise ValueError(f"Bus ID {busID} already exists.")
+#
+#        def on_data_received(busID, data):
+#            """Callback for handling received data."""
+#            # Parse and handle the message here
+#        
+#        log(DB.LOG_INFO, f"Connecting DomBus {busID} on port {port} {baudrate}bps ...")
+#        transport, protocol = await serial_asyncio.create_serial_connection(
+#            self.loop,
+#            lambda: DomBusProtocol(busID, on_data_received),
+#            port,
+#            baudrate=baudrate,
+#        )
+#        buses[busID]['protocol'] = protocol
+#        log(DB.LOG_DEBUG, f"Bus {busID} added on port {port}.")
+#
+#
+
+    async def add_bus(self, busID, port, baudrate=115200):
+        """Task that add a new serial bus."""
         def on_data_received(busID, data):
             """Callback for handling received data."""
             # Parse and handle the message here
         
-        log(DB.LOG_INFO, f"Connecting DomBus {busID} on port {port} {baudrate}bps ...")
-        transport, protocol = await serial_asyncio.create_serial_connection(
-            self.loop,
-            lambda: DomBusProtocol(busID, on_data_received),
-            port,
-            baudrate=baudrate,
-        )
-        buses[busID]['protocol'] = protocol
-        log(DB.LOG_DEBUG, f"Bus {busID} added on port {port}.")
+        try:
+            log(DB.LOG_INFO, f"Connecting DomBus {busID} on port {port} {baudrate}bps ...")
+            transport, protocol = await serial_asyncio.create_serial_connection(
+                self.loop,
+                lambda: DomBusProtocol(busID, on_data_received),
+                port,
+                baudrate=baudrate,
+            )
+        except Exception as e:
+            log(DB.LOG_INFO, f"Error connecting DomBus bus {busID} on port {port}: {e}. Retry in {self.retryConnection}s")
+            buses[busID]['protocol'] = None
+        else:
+            log(DB.LOG_DEBUG, f"Bus {busID} added on port {port}.")
+            buses[busID]['protocol'] = protocol
+
 
     def remove_bus(self, busID):
         """Remove a bus by its ID."""
@@ -1552,7 +1588,7 @@ class DomBusManager:
 
     async def add_mqtt(self):
         """Connect to the MQTT broker and set up subscriptions."""
-
+       
         try:
             log(DB.LOG_INFO, f"Connecting to MQTT broker using AIOMQTT at {mqtt['host']}:{mqtt['port']}")
             mqtt['client'] = MQTTClient(mqtt['host'], mqtt['port'], username = mqtt['user'], password = mqtt['pass'])
@@ -2115,12 +2151,13 @@ if __name__ == "__main__":
 
         signal.signal(signal.SIGTERM, sigtermHandler)
 
-        for bus in buses:
-            try: 
-                await manager.add_bus(busID=bus, port=buses[bus]['serialPort'], baudrate=115200)
-            except Exception as e:
-                log(DB.LOG_ERR, f"Error opening serial port {buses[bus]['serialPort']}: {e}")
-                log(DB.LOG_ERR, "Skip this serial port!")
+#        for bus in buses:
+#            try: 
+#                await manager.add_bus(busID=bus, port=buses[bus]['serialPort'], baudrate=115200)
+#            except Exception as e:
+#                log(DB.LOG_ERR, f"Error opening serial port {buses[bus]['serialPort']}: {e}")
+        asyncio.create_task(manager.check_buses()) # Check serial ports and start connection even in case of failure
+
 
         if mqtt['enabled'] != 0:
             # await manager.add_mqtt()
@@ -2174,7 +2211,6 @@ if __name__ == "__main__":
         mqtt['host'] = args.mqtt_host
     if args.mqtt_port and args.mqtt_port>0:
         mqtt['port'] = args.mqtt_port
-        print(f"mqtt_port={mqtt['port']}")
     if args.mqtt_user and args.mqtt_user != '':
         mqtt['user'] = args.mqtt_user
     if args.mqtt_pass and args.mqtt_pass != '':
