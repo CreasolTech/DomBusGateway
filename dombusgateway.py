@@ -4,7 +4,7 @@
 # Written by Creasol - www.creasol.it
 #
 
-VERSION = "0.2"
+VERSION = "0.3"
 
 from dombusgateway_conf import *
 
@@ -37,6 +37,7 @@ from datetime import datetime
 from queue import Queue
 
 import argparse
+import ipaddress
 
 Devices = dict()    # list of all devices (one device for each module port)
 Modules = dict()    # list of modules
@@ -550,14 +551,11 @@ class DomBusDevice():
         diff = 0
         if portType is not None and self.portType != portType:
             self.portType = portType
-            diff += 1
         if portOpt is not None and self.portOpt != portOpt:
             self.portOpt = portOpt
-            diff += 2
-        if dcmd is not None and self.dcmd != dcmd:
+        if dcmd is not None:    # and self.dcmd != dcmd:
             self.dcmd = dcmd.copy()
             self.dcmdConf = dcmdConf    # "DCMD(Pulse)=1ff37.1:Toggle,DCMD(Pulse1)=10001.2:On:1m"
-            diff += 4
             log(DB.LOG_DEBUG, f"2: len(dcmd)={len(dcmd)} dcmdConf={dcmdConf} self.dcmdConf={self.dcmdConf} diff={diff}")
         
         if options:
@@ -571,34 +569,29 @@ class DomBusDevice():
             self.ha.update(haOptions)
             diff += 16
 
-        log(DB.LOG_DEBUG, f"3: len(dcmd)={len(dcmd)} dcmdConf={dcmdConf} self.dcmdConf={self.dcmdConf} diff={diff}")
-        if diff & 7:
-            # update DomBus module configuration
-            log(DB.LOG_INFO, f'Update configuration for DomBus module {self.devIDname}:\r\n  {self.portConf}')
-            proto.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 7, 0, self.port, [((self.portType>>24)&0xff), ((self.portType>>16)&0xff), ((self.portType>>8)&0xff), (self.portType&0xff), (self.portOpt >> 8), (self.portOpt&0xff)], DB.TX_RETRY,1)
-            proto.send()    # Transmit
-            # DCMD ?
-            if diff & 4:
-                # DCMD was changed => send
-                dcmdnum=0
-                for i in range(0, min(len(dcmd), 8)):
-                    d = dcmd[i]
-                    log(DB.LOG_DEBUG, f"DCMD: transmit #{i} ?")
-                    #note: port|=0, 0x20, 0x40, 0x60 (4 DCMD for each port)
-                    if (d[0]!=0 and d[0]<DB.DCMD_IN_EVENTS["MAX"]):
-                        dcmdnum += 1
-                        log(DB.LOG_DEBUG, f"Yes, txQueueAdd()")
-                        proto.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 7, 0, self.port, [((self.portType>>24)&0xff), ((self.portType>>16)&0xff), ((self.portType>>8)&0xff), (self.portType&0xff), (self.portOpt >> 8), (self.portOpt&0xff)], DB.TX_RETRY,1)
-                        proto.txQueueAdd(self.frameAddr, DB.CMD_DCMD_CONFIG, 12, 0, self.port|(i<<5), [ 
-                            d[0],
-                            d[1]>>8, d[1]&0xff,
-                            d[2]>>8, d[2]&0xff,
-                            d[3]>>8, d[3]&0xff, d[4], d[5],
-                            d[6]>>8, d[6]&0xff 
-                        ], DB.TX_RETRY, 1)
-                if (dcmdnum == 0): #DCMD not defined => transmits an empty DCMD_CONFIG 
-                    proto.txQueueAdd(self.frameAddr, DB.CMD_DCMD_CONFIG, 2, 0, self.port, [ DB.DCMD_IN_EVENTS["NONE"] ], DB.TX_RETRY, 1)
-                proto.send()    # Transmit!
+        # update DomBus module configuration
+        log(DB.LOG_INFO, f'Update configuration for DomBus module {self.devIDname}:\r\n  {self.portConf}')
+        proto.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 7, 0, self.port, [((self.portType>>24)&0xff), ((self.portType>>16)&0xff), ((self.portType>>8)&0xff), (self.portType&0xff), (self.portOpt >> 8), (self.portOpt&0xff)], DB.TX_RETRY,1)
+        proto.send()    # Transmit
+        # DCMD ?
+        dcmdnum=0
+        for i in range(0, min(len(dcmd), 8)):
+            d = dcmd[i]
+            log(DB.LOG_DEBUG, f"DCMD: transmit #{i} ?")
+            #note: port|=0, 0x20, 0x40, 0x60 (4 DCMD for each port)
+            if (d[0]!=0 and d[0]<DB.DCMD_IN_EVENTS["MAX"]):
+                dcmdnum += 1
+                log(DB.LOG_DEBUG, f"Yes, txQueueAdd()")
+                proto.txQueueAdd(self.frameAddr, DB.CMD_DCMD_CONFIG, 12, 0, self.port|(i<<5), [ 
+                    d[0],
+                    d[1]>>8, d[1]&0xff,
+                    d[2]>>8, d[2]&0xff,
+                    d[3]>>8, d[3]&0xff, d[4], d[5],
+                    d[6]>>8, d[6]&0xff 
+                ], DB.TX_RETRY, 1)
+        if (dcmdnum == 0): #DCMD not defined => transmits an empty DCMD_CONFIG 
+            proto.txQueueAdd(self.frameAddr, DB.CMD_DCMD_CONFIG, 2, 0, self.port, [ DB.DCMD_IN_EVENTS["NONE"] ], DB.TX_RETRY, 1)
+        proto.send()    # Transmit!
 
         if 'ADDR' in options and options['ADDR']>0 and options['ADDR']<248:
             log(DB.LOG_INFO, f"Send command to change modbus device address to {options['ADDR']}")
@@ -820,15 +813,15 @@ class DomBusProtocol(asyncio.Protocol):
                     break
                 else:    
                     cmd, port, arg = struct.unpack(">BBB", frame[i:i+3])
-                    cmdAck = 1 if (cmd & DB.CMD_ACK) else 0
+                    cmdAck = DB.CMD_ACK if (cmd & DB.CMD_ACK) else 0
                     cmdLen = (cmd & DB.CMD_LEN_MASK) * 2
                     cmd &= DB.CMD_MASK
                     msg += " "
-                    if cmdAck:
+                    if cmdAck != 0:
                         msg += "A-"
                     if cmd == DB.CMD_CONFIG:
                         msg += 'CFG '
-                        if cmdAck and port == 0xfe:
+                        if cmdAck != 0 and port == 0xfe:
                             # Module version and type
                             msg += f'{port:02x} '
                             for j in range (2, cmdLen+1):
@@ -839,7 +832,7 @@ class DomBusProtocol(asyncio.Protocol):
                             msg += ';'
                             i += cmdLen + 1
                             continue
-                        if cmdAck and (port & 0xf0) == 0xf0:
+                        if cmdAck != 0 and (port & 0xf0) == 0xf0:
                             # whole port configuration => cmdLen without any sense
                             msg += f"{port:02x} {arg:x}"
                             i += 3
@@ -861,10 +854,10 @@ class DomBusProtocol(asyncio.Protocol):
                         msg += 'GET '
                     elif cmd == DB.CMD_DCMD_CONFIG:
                         msg += 'DCMDCFG '
-                        logLevel |= DB.LOG_DUMPDCMD
+                        logLevel = DB.LOG_DUMPDCMD
                     elif cmd==DB.CMD_DCMD:
                         msg += 'DCMD '
-                        logLevel |= DB.LOG_DUMPDCMD
+                        logLevel = DB.LOG_DUMPDCMD
                     
                     msg += f"P{port:02x} {arg:02x}"
                     i += 1
@@ -939,41 +932,42 @@ class DomBusProtocol(asyncio.Protocol):
             # broadcast
             # TODO: remove comment log(DB.LOG_DEBUG, "Received a frame from another controller")
             src = 0 # dummy instruction
-        elif dst == 0:
-            # frame addressed to me: parse frame
-            frameIdx = DB.FRAME_HEADER
-            while frameIdx+3 < frameLen:
-                portIdx = frameIdx + 1
-                cmd, port, arg = struct.unpack(">BBB", frame[frameIdx:frameIdx+3])
-                cmdAck = 1 if (cmd & DB.CMD_ACK) else 0
-                cmdLen = (cmd & DB.CMD_LEN_MASK) * 2
-                cmd &= DB.CMD_MASK
-                if cmd == DB.CMD_CONFIG and port != 0xfe and (port & 0xf0) == 0xf0:
-                    cmdLen = 4 # cmdLen does not make sense in case of full port configuration
-                if frameLen < frameIdx + cmdLen + 1:
-                    # invalid cmdLen: 
-                    log(DB.LOG_DEBUG, f"Invalid cmdLen={cmdLen}: ignore frame")
-                    return
-                if cmdLen>=3:
-                    arg2 = frame[portIdx+2]
-                    if cmdLen >= 4:
-                        arg3 = frame[portIdx+3]
-                        if cmdLen >= 5:
-                            arg4 = frame[portIdx+4]
-                            if cmdLen >= 6:
-                                arg5 = frame[portIdx+5]
-                                if cmdLen >= 7:
-                                    arg6 = frame[portIdx+6]
-                                    if cmdLen >= 8:
-                                        arg7 = frame[portIdx+7]
-                                        if cmdLen >= 9:
-                                            arg8 = frame[portIdx+8]
-                                            if cmdLen >= 10:
-                                                arg9 = frame[portIdx+9]
-                                                if cmdLen >= 11:
-                                                    arg10 = frame[portIdx+10]
-                                                    if cmdLen >= 12:
-                                                        arg11 = frame[portIdx+11]
+
+        frameIdx = DB.FRAME_HEADER
+        while frameIdx+3 < frameLen:
+            portIdx = frameIdx + 1
+            cmd, port, arg = struct.unpack(">BBB", frame[frameIdx:frameIdx+3])
+            cmdAck = DB.CMD_ACK if (cmd & DB.CMD_ACK) else 0
+            cmdLen = (cmd & DB.CMD_LEN_MASK) * 2
+            cmd &= DB.CMD_MASK
+            if cmd == DB.CMD_CONFIG and port != 0xfe and (port & 0xf0) == 0xf0:
+                cmdLen = 4 # cmdLen does not make sense in case of full port configuration
+            if frameLen < frameIdx + cmdLen + 1:
+                # invalid cmdLen: 
+                log(DB.LOG_DEBUG, f"Invalid cmdLen={cmdLen}: ignore frame")
+                return
+            if cmdLen>=3:
+                arg2 = frame[portIdx+2]
+                if cmdLen >= 4:
+                    arg3 = frame[portIdx+3]
+                    if cmdLen >= 5:
+                        arg4 = frame[portIdx+4]
+                        if cmdLen >= 6:
+                            arg5 = frame[portIdx+5]
+                            if cmdLen >= 7:
+                                arg6 = frame[portIdx+6]
+                                if cmdLen >= 8:
+                                    arg7 = frame[portIdx+7]
+                                    if cmdLen >= 9:
+                                        arg8 = frame[portIdx+8]
+                                        if cmdLen >= 10:
+                                            arg9 = frame[portIdx+9]
+                                            if cmdLen >= 11:
+                                                arg10 = frame[portIdx+10]
+                                                if cmdLen >= 12:
+                                                    arg11 = frame[portIdx+11]
+            if dst == 0:                                                    
+                # frame addressed to me: parse frame
                 self.setID(port)    # set self.devID and self.devIDname
                 self.moduleUpdate(1) # update modules dictionary to keep trace of running modules
                 # check if device exists
@@ -982,7 +976,7 @@ class DomBusProtocol(asyncio.Protocol):
                     self.txQueueAskConfig(self.frameAddr)
                 else:
                     # module already recognized
-                    if cmdAck:
+                    if cmdAck != 0:
                         # ACK received
                         if self.devID in Devices:
                             Devices[self.devID].updateFromBus(0)    # Only update lastUpdate
@@ -1141,6 +1135,10 @@ class DomBusProtocol(asyncio.Protocol):
                                     # log(DB.LOG_DEBUG, f"Received SET+ACK: value={d.value} valueHA={d.valueHA}")
                                     d.updateFromBus(DB.UPDATE_ACK, 0)
                                 # TODO: update value by using ACK also for other port types?
+                        # ACK was managed.
+                        # if more frames from frameAddr => program send()
+                        if self.frameAddr in self.txQueue and len(self.txQueue[self.frameAddr])>0:
+                            self.send()
                     else:
                         #cmdAck==0 => decode command from slave module
                         if src != 0xffff and dst == 0:
@@ -1250,12 +1248,23 @@ class DomBusProtocol(asyncio.Protocol):
                                     # data = r.json()
                                 """
                                 self.txQueueAdd(self.frameAddr, cmd, 2, DB.CMD_ACK, port, [arg], 1, 1)
-                        else:   # frameaddr==0xffff or dstaddr!=0 => command to another device
-                            if cmd == DB.CMD_DCMD and arg<DB.DCMD_OUT_CMDS['MAX']: #DCMD command addressed to another device
-                                value = arg2*256+arg3
-                                log(DB.LOG_INFO,f"DCMD command from {self.frameAddr:04x} to {self.devAddr:04x}: port={port:02x} cmd={DB.DCMD_OUT_CMDS_Names[arg]} {value}")
+            else:
+                # frame not addressed to me
+                if cmd == DB.CMD_DCMD and src != 0 and src != 0xffff and dst != 0 and arg<DB.DCMD_OUT_CMDS['MAX']: #DCMD command addressed to another device
+                    log(DB.LOG_INFO,f"DCMD command from {src:04x} to {dst:04x}: port={port:02x} cmd={DB.DCMD_OUT_CMDS_Names[arg]} cmdLen={cmdLen}")
+                    if len(buses)>1 and ((self.busID << 16) + dst) not in Modules:
+                        # in case that more than 1 bus are attached and DCMD destination is not in the current bus, route frame to another bus
+                        for bus in buses:
+                            frameAddr = ((bus << 16) + dst)
+                            if bus != self.busID and frameAddr in Modules:
+                                # Frame must be transmitted to another bus => use the right class for txQueueAdd
+                                buses[bus]['protocol'].txQueueAdd(frameAddr + (self.busID << 40) + (src << 24), cmd, cmdLen, cmdAck, port, [arg] if cmdAck else [arg, arg2, arg3], 1, 1)   # frameAddr=(bus|src|busID|dst)
+                                buses[bus]['protocol'].send()   # start sending frame on the other bus
+                                
+                        
+            frameIdx = frameIdx + cmdLen + 1
+        self.send()
 
-                frameIdx = frameIdx + cmdLen + 1
                 
     def moduleUpdate(self, what: int = 0):
         """
@@ -1279,24 +1288,25 @@ class DomBusProtocol(asyncio.Protocol):
         self.txQueueAdd(frameAddr, DB.CMD_CONFIG, 4, 0, port, [subcmd, ((value>>8)&0xff), (value&0xff)], DB.TX_RETRY, 1)
 
     def txQueueAdd(self, frameAddr, cmd, cmdLen, cmdAck, port, args, retries, now):
-        #add a command in the tx queue for the specified module (frameAddr)
-        #if that command already exists, update it
-        #cmdLen=length of data after command (port+args[])
+        # add a command in the tx queue for the specified module (frameAddr)
+        # frameAddr may be srcbus|src|dstbus|dst  (48bit) in case that a DCMD command must be transmitted from one bus to another one
+        # if that command already exists, update it
+        # cmdLen=length of data after command (port+args[])
         sec=int(time.time())
         ms=int(time.time()*1000)
         self.moduleUpdate(2) # Update Modules[frameAddr]
         if len(self.txQueue)==0 or frameAddr not in self.txQueue:
             #create self.txQueue[frameAddr]
             self.txQueue[frameAddr]=[[cmd, cmdLen, cmdAck, port, args, retries]]
-            log(DB.LOG_DEBUG, f"txQueueAdd(): frameAddr does not exist! frameAddr={frameAddr:06x} cmd={(cmd|cmdAck|cmdLen):02x} port={hex(port)}")
-            Modules[frameAddr][DB.LASTRETRY] = 0 # Init retry value for this module (no frames were in the queue)
+            # log(DB.LOG_DEBUG, f"txQueueAdd(): frameAddr does not exist! frameAddr={frameAddr:06x} cmd={cmd:02x} ack={cmdAck} len={cmdLen} port={port:02x}")
+            Modules[frameAddr&0xffffff][DB.LASTRETRY] = 0 # Init retry value for this module (no frames were in the queue)
         else:
             found=0
             for f in self.txQueue[frameAddr]:
                 #f=[cmd,cmdlen,cmdAck,port,args[]]
                 if (f[DB.TXQ_CMD]==cmd and f[DB.TXQ_CMDLEN]==cmdLen and f[DB.TXQ_PORT]==port and (cmd!=DB.CMD_CONFIG or len(args)==0 or args[0]==f[DB.TXQ_ARGS][0])): #if CMD_CONFIG, also check that SUBCMD is the same
                     #command already in txQueue: update values
-                    log(DB.LOG_DEBUG, f"txQueueAdd(): frame already exist: frameAddr={frameAddr:06x} cmd={(cmd|cmdAck|cmdLen):02x} port={hex(port)}")
+                    # log(DB.LOG_DEBUG, f"txQueueAdd(): frame already exist: frameAddr={frameAddr:06x} cmd={cmd:02x} ack={cmdAck} len={cmdLen} port={port:02x}")
                     f[DB.TXQ_CMDACK]=cmdAck
                     f[DB.TXQ_ARGS]=args
                     if (f[DB.TXQ_RETRIES]<retries):
@@ -1305,10 +1315,10 @@ class DomBusProtocol(asyncio.Protocol):
                     break
             if (found==0):
                 self.txQueue[frameAddr].append([cmd,cmdLen,cmdAck,port,args,retries])
-                # log(DB.LOG_DEBUG, f"txQueueAdd(): add frame to the queue: frameAddr={frameAddr:06x} cmd={(cmd|cmdAck|cmdLen):02x} port={hex(port)}")
+                # log(DB.LOG_DEBUG, f"txQueueAdd(): add frame to the queue: frameAddr={frameAddr:06x} cmd={cmd:02x} ack={cmdAck} len={cmdLen} port={port:02x}")
             #txQueueRetry: don't modify it... transmit when retry time expires (maybe now or soon)
         if now:
-            Modules[frameAddr][DB.LASTTX] = 0 # Transmit now
+            Modules[frameAddr&0xffffff][DB.LASTTX] = 0 # Transmit now
 
     def txQueueAskConfig(self, frameAddr):
         self.txQueueAdd(frameAddr, DB.CMD_CONFIG, 1, 0, 0xff, [], DB.TX_RETRY, 1)    #port=0xff to ask full configuration 
@@ -1322,6 +1332,7 @@ class DomBusProtocol(asyncio.Protocol):
                 #Log(LOG_DEBUG,"f="+str(f))
                 #f=[cmd,cmdlen,cmdAck,port,args[],retries]
                 if (((cmd&port)==255) or (f[DB.TXQ_CMD]==cmd and f[DB.TXQ_PORT]==port and (len(f[DB.TXQ_ARGS])==0 or f[DB.TXQ_ARGS][0]==arg1))):
+                    # log(DB.LOG_DEBUG, f"txQueueRemove(): remove frame from the queue: frameAddr={frameAddr:06x} cmd={cmd:02x} port={port:02x} arg1={arg1:02x}")
                     self.txQueue[frameAddr].remove(f)
 
 
@@ -1345,14 +1356,17 @@ class DomBusProtocol(asyncio.Protocol):
     def send(self):
         """Read txQueue[] and create frames, one for each address, and start transmitting"""
         # txQueue[frameAddr]=[[cmd, cmdLen, cmdAck, port, [arg1, arg2, arg3, ...], retries]]
+        # frameAddr normally is 010004  (module addr 4, busID 1)
+        # but may be something like 021201010004 (packet from address 1201 of bus 2 to 0004 of bus 1    
+
         timeNextTx = 0  # next transmission time (since Epoch), in ms            
         tx = 0
         sec = int(time.time())
         ms = int(time.time() * 1000)
-        # scan all Modules
-        delModules = []
-        for frameAddr, module in Modules.items():
-            if frameAddr != 0 and frameAddr in self.txQueue and len(self.txQueue[frameAddr])>0:
+
+        for frameAddr in self.txQueue:
+            if len(self.txQueue[frameAddr])>0:
+                module = Modules[frameAddr & 0xffffff]
                 # timeSinceLastTx = ms-module[DB.LASTTX]        #number of milliseconds since last TXed frame
                 # timeLastTx = module[DB.LASTTX]
                 module[DB.LASTRETRY]                         #number of retry (0,1,2,3...): used to compute the retry period
@@ -1366,8 +1380,8 @@ class DomBusProtocol(asyncio.Protocol):
                     self.txbuffer.append(DB.PREAMBLE)
                     self.txbuffer.append((frameAddr >> 8) & 0xff)       #dstAddr
                     self.txbuffer.append(frameAddr & 0xff)
-                    self.txbuffer.append(0)                  #master address
-                    self.txbuffer.append(0)
+                    self.txbuffer.append((frameAddr >> 32) & 0xff)      #master address or src address (DCMD)
+                    self.txbuffer.append((frameAddr >> 24) & 0xff)
                     self.txbuffer.append(0)                  #length
                     txbufferIndex=DB.FRAME_HEADER
                     # transmit ACK first: build a new queue with all ACK and commands for the selected module frameAddr
@@ -1375,7 +1389,7 @@ class DomBusProtocol(asyncio.Protocol):
                     # Transmit ACK first, then commands
                     for txq in self.txQueue[frameAddr][:]:    #iterate a copy of self.txQueue[frameAddr]
                         (cmd, cmdLen, cmdAck, port, args, retry) = txq
-                        if cmdAck:
+                        if cmdAck != 0:
                             # ACK transmitted first
                             txQueueNow.append(txq)
                     for txq in self.txQueue[frameAddr][:]:    #iterate a copy of txQueue[frameAddr]
@@ -1388,7 +1402,9 @@ class DomBusProtocol(asyncio.Protocol):
                         #[cmd,cmdLen,cmdAck,port,[*args]]
                         (cmd, cmdLen, cmdAck, port, args, retry) = txq
                         if (txbufferIndex+cmdLen+2>=DB.FRAME_LEN_MAX):
-                            break   #frame must be truncated
+                            #frame must be truncate (TX fifo is full)
+                            # if other frame exists, send() must be invoked at the receiving of the ACK
+                            break
                         self.txbuffer.append((cmd | cmdAck | int((cmdLen+1) / 2)))   #cmdLen field is the number of cmd payload/2, so if after cmd there are 3 or 4 bytes, cmdLen field must be 2 (corresponding to 4 bytes)
                         txbufferIndex += 1
                         self.txbuffer.append(port & 0xff)
@@ -1402,7 +1418,7 @@ class DomBusProtocol(asyncio.Protocol):
                             txbufferIndex+=1
 
                         # if this cmd is an ACK, or values[0]==1, remove command from the queue
-                        if (cmdAck or retry<=1):
+                        if (cmdAck != 0 or retry<=1):
                             self.txQueue[frameAddr].remove(txq)
                         else:
                             txq[DB.TXQ_RETRIES] = retry-1   #command, no ack: decrement retry
@@ -1420,13 +1436,16 @@ class DomBusProtocol(asyncio.Protocol):
 
                     # TODO SerialConn.Send(frameAddr, self.txbuffer)    # frameAddr contains the busID, self.txbuffer the frame ready to be transmitted
                     self.transport.write(self.txbuffer[:txbufferIndex])
-                    self.dump(self.txbuffer, txbufferIndex, "TX", frameAddr >> 16, DB.FRAME_OK)
-                    Modules[frameAddr][DB.LASTTX] = ms
+                    self.dump(self.txbuffer, txbufferIndex, "TX", (frameAddr >> 16) & 0xff, DB.FRAME_OK)
+                    Modules[frameAddr&0xffffff][DB.LASTTX] = ms
                 else:
                     # if timeNextRetry > ms: must wait!
                     if timeNextTx==0 or timeNextRetry < timeNextTx:
                         timeNextTx = timeNextRetry
 
+                        
+        """
+            TODO: remove modules that are not received since a long time ???
             else: #No frame to be TXed for this frameAddr
                 #check that module is active
                 timeSinceLastRx = sec-module[DB.LASTRX]       #number of seconds since last RXed frame
@@ -1439,22 +1458,17 @@ class DomBusProtocol(asyncio.Protocol):
                         log(DB.LOG_INFO,f"Remove txQueue for {frameAddr:06x}")
                         self.txQueueRemove(frameAddr,255,255,0)
                         # TODO: set device as not available
-                        """
-                        log(DB.LOG_INFO,"Set devices in timedOut mode (red header) for this module")
-                        deviceIDMask="H{:04x}_P".format(frameAddr)
-                        for Device in Devices:
-                            d=Devices[Device]
-                            if (d.Used==1 and d.DeviceID[:7]==deviceIDMask):
-                                # device is used and matches frameAddr
-                                d.Update(nValue=d.nValue, sValue=d.sValue, TimedOut=1) #set device in TimedOut mode (red bar)
-                        """
 
         for d in delmodules:    #remove module address of died modules (that do not answer since long time (MODULE_ALIVE_TIME))
             if d in Modules:
                 del Modules[d]
+        """
 
 
-        if (tx==0): #nothing has been transmitted: send outputs status for device with older lastStatus
+        if tx == 0: #nothing has been transmitted: send outputs status for device with older lastStatus
+
+            # Check if any DCMD frame from a dombus module to another one...
+                    
             olderFrameAddr=0
             olderTime=sec
             # find the device that I sent the output status earlier
@@ -1688,6 +1702,14 @@ class DomBusManager:
             message = str(payload)
         self.mqttPublishQueue.put((topic, message))
 
+    def isPrivateIP(self, ip_str):
+        """Check if IP is in private ranges"""
+        try:
+            ip = ipaddress.ip_address(ip_str)
+            return ip.is_loopback or ip.is_private
+        except ValueError:
+            return False
+
     async def addTelnetServer(self):
         """Listen to a TCP port to receive commands by Telnet"""
 
@@ -1704,6 +1726,22 @@ class DomBusManager:
         clientIP = writer.get_extra_info('peername')[0]
         log(DB.LOG_INFO, f"New telnet connection from {clientIP}")
         telnet['clients'][writer] = dict(reader = reader, writer = writer, ip = clientIP)
+        # if telnet connection from private/localhost IP => no password required
+        if self.isPrivateIP(clientIP)==False and 'password' in telnet and len(telnet['password'])>0:
+            # handle remote connections from non-local IP address asking for a password.
+            for i in range (1, 4):
+                writer.write(b"Password required for external connection: ")
+                password = await reader.readline()
+                if password.decode().strip() == telnet['password']:
+                    i=0; break
+                log(DB.LOG_INFO, f"Telnet: {clientIP} entered a wrong password: {password.decode().strip()}")
+                await asyncio.sleep(i)
+            if i != 0:
+                # close telnet connection
+                del telnet['clients'][writer]
+                writer.close()
+                await writer.wait_closed() 
+
         writer.write(b'Welcome to DomBusGateway telnet interface\r\nType help to get a list of commands\r\nMore info at https://www.creasol.it/DomBusGateway\r\n> ')
         await writer.drain()
 
@@ -2192,6 +2230,8 @@ if __name__ == "__main__":
             help='Username that can access the MQTT broker, for example dombus. On HAOS, a user must be created with this name')
     parser.add_argument('--mqtt_pass', '-ms', type=str, default='',
             help='Password for the user accessing the MQTT broker')
+    parser.add_argument('--telnet_pass', '-ts', type=str, default='',
+            help='Password for telnet from remote connections')
 
     args = parser.parse_args()
     if args.debug_level and args.debug_level>=0:    debugLevel = args.debug_level
@@ -2215,6 +2255,8 @@ if __name__ == "__main__":
         mqtt['user'] = args.mqtt_user
     if args.mqtt_pass and args.mqtt_pass != '':
         mqtt['pass'] = args.mqtt_pass
+    if args.telnet_pass and args.telnet_pass != '':
+        telnet['password'] = args.telnet_pass
 
     # logging
     if logFile: 

@@ -224,7 +224,7 @@ DCMD_OUT_CMDS={
         "MAX":      7,      #Max number of commands
         }
 
-
+DCMD_OUT_CMDS_Names=["None", "Off", "On", "Toggle", "Dimmer", "Down", "Up"]
 
 TXQ_CMD=0
 TXQ_CMDLEN=1
@@ -246,17 +246,17 @@ LOG_MQTTTX  =   0x200   # Log MQTT TX commands
 LOG_TELNET  =   0x10000 # Log TELNET messages
 
 LOGNAME = {
-    LOG_NONE:       '           ',
-    LOG_ERR:        '[ERROR]    ',
-    LOG_WARN:       '[WARNING]  ',
-    LOG_INFO:       '[INFO]     ',
-    LOG_DEBUG:      '[DEBUG]    ',
-    LOG_DUMPRX:     '[DUMPRX]   ',
-    LOG_DUMPTX:     '[DUMPTX]   ',
-    LOG_DUMPDCMD:   '[DUMPDCMD] ',
-    LOG_MQTTRX:     '[MQTTRX]   ',
-    LOG_MQTTTX:     '[MQTTTX]   ',
-    LOG_TELNET:     '[TELNET]   ',
+    LOG_NONE:       '         ',
+    LOG_ERR:        '[ERROR ] ',
+    LOG_WARN:       '[ WARN ] ',
+    LOG_INFO:       '[ INFO ] ',
+    LOG_DEBUG:      '[DEBUG ] ',
+    LOG_DUMPRX:     '[DUMPRX] ',
+    LOG_DUMPTX:     '[DUMPTX] ',
+    LOG_DUMPDCMD:   '[ DCMD ] ',
+    LOG_MQTTRX:     '[MQTTRX] ',
+    LOG_MQTTTX:     '[MQTTTX] ',
+    LOG_TELNET:     '[TELNET] ',
 }
 
 

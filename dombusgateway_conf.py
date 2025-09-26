@@ -74,7 +74,8 @@ mqtt = {
 telnet = {
     'enabled':      1,                  # 0 => telnet port not enabled, 1 => enabled
     'port':         8023,               # port to listen
-    'address':      '0.0.0.0',        # interface to bind to. '127.0.0.1' => localhost, '192.168.x.y' => LAN, '0.0.0.0' => all interfaces
+    'address':      '0.0.0.0',          # interface to bind to. '127.0.0.1' => localhost, '192.168.x.y' => LAN, '0.0.0.0' => all interfaces
+    'password':     'secretpasswd',     # Password for telnet access from remote connections (not needed for localhost and private IP connections)
 }
 
 try:

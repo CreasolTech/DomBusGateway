@@ -13,10 +13,24 @@ For info about changes in the DomBusGateway features, please check github at htt
 
 ### Fixed
 
+## [Unreleased] 
+
+### Added
+
+### Fixed
+
 ### Changed
 
 ### Removed
 
+## [0.3] 2025-09-26 
+
+### Added
+* Password for telnet connections coming not from localhost or LAN (password required only for remote IP addresses).
+Added telnet['password'] on configuration file and --telnet-pass (or -ts) command line parameter
+
+* Routing of DCMD messages among buses: if a DCMD command from DomBus module X is directed to Dombus module Y, but Y is connected to 
+  another bus, DomBusGateway will transmit DCMD command to that bus. Also, the DCMD-ACK will be routed to the opposite path.
 
 ## [0.2] 2025-09-24 
 
