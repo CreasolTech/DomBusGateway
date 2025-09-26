@@ -86,7 +86,7 @@ def devIDName2devID(devIDname: str) -> int:
 ######################################## DomBusDevice class ###############################################    
 class DomBusDevice():
     """Device class"""
-    def __init__(self, devID : int, portType: int, portOpt: int, portName: str, options: dict, haOptions: dict, dcmd: dict = {},  status: dict = {}, dcmdConf: str = ""):
+    def __init__(self, devID : int, portType: int, portOpt: int, portName: str, options: dict, haOptions: dict, dcmd: list = [],  status: dict = {}, dcmdConf: str = ""):
         self.devID = int(devID) # devID=0xBBAAAAPPPP
         self.busID = devID >> 32
         self.frameAddr = self.devID >> 16     #0xBBAAAA for example 0x01ff38
@@ -225,7 +225,10 @@ class DomBusDevice():
     def value2valueHA(self):
         """Convert value got from DomBus to a device state compatible with Home Assistant"""
         if self.ha['p'] == 'select':
-            self.valueHA = self.value / 10
+            self.valueHA = int(self.value / 10)
+            if 'options' in self.ha and self.ha['options'][self.valueHA]:
+                # Extract the name corresponding to the current select option
+                self.valueHA = self.ha['options'][self.valueHA]
         elif (self.portType & (DB.PORTTYPE_OUT_DIGITAL | DB.PORTTYPE_OUT_RELAY_LP | DB.PORTTYPE_OUT_LEDSTATUS | DB.PORTTYPE_IN_AC) or self.ha['p'] == 'switch'):
             self.valueHA = 'OFF' if self.value==0 else 'ON'
         elif (self.portType & (DB.PORTTYPE_IN_TWINBUTTON | DB.PORTTYPE_OUT_BLIND)):
@@ -553,10 +556,9 @@ class DomBusDevice():
             self.portType = portType
         if portOpt is not None and self.portOpt != portOpt:
             self.portOpt = portOpt
-        if dcmd is not None:    # and self.dcmd != dcmd:
+        if dcmd:    # and self.dcmd != dcmd:
             self.dcmd = dcmd.copy()
             self.dcmdConf = dcmdConf    # "DCMD(Pulse)=1ff37.1:Toggle,DCMD(Pulse1)=10001.2:On:1m"
-            log(DB.LOG_DEBUG, f"2: len(dcmd)={len(dcmd)} dcmdConf={dcmdConf} self.dcmdConf={self.dcmdConf} diff={diff}")
         
         if options:
             self.options = options.copy()
@@ -1091,17 +1093,17 @@ class DomBusProtocol(asyncio.Protocol):
                                                             options['EVMINVOLTAGE'] = 207
                                                             # Create virtual device EVMAXCURRENT, devID 0x104
 
-                                                            manager.parseConfiguration(self.devID+0x100, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x100:03x} EV MaxCurrent", {}, {'p': 'number', 'min': 0, 'max':36, 'step':1, 'unit_of_measurement': 'A'}, options['EVMAXCURRENT'])
-                                                            manager.parseConfiguration(self.devID+0x200, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x200:03x} EVMAXPOWER", {}, {'p': 'number', 'min': 1000, 'max':25000, 'step':100, 'unit_of_measurement': 'W'}, options['EVMAXPOWER'])
-                                                            manager.parseConfiguration(self.devID+0x300, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x300:03x} EVSTARTPOWER", {}, {'p': 'number', 'min': 800, 'max':25000, 'step':100, 'unit_of_measurement': 'W'}, options['EVSTARTPOWER'])
-                                                            manager.parseConfiguration(self.devID+0x400, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x400:03x} EVSTOPTIME", {}, {'p': 'number', 'min': 5, 'max':600, 'step':1, 'unit_of_measurement': 's'}, options['EVSTOPTIME'])
-                                                            manager.parseConfiguration(self.devID+0x500, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x500:03x} EVAUTOSTART", {}, {'p': 'number', 'min': 0, 'max':2, 'step':1, 'unit_of_measurement': ' '}, options['EVAUTOSTART'])
-                                                            manager.parseConfiguration(self.devID+0x600, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x600:03x} EVMAXPOWER2", {}, {'p': 'number', 'min': 0, 'max':25000, 'step':100, 'unit_of_measurement': 'W'}, options['EVMAXPOWER2'])
-                                                            manager.parseConfiguration(self.devID+0x700, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x700:03x} EVMAXPOWERTIME", {}, {'p': 'number', 'min': 0, 'max':43200, 'step':1, 'unit_of_measurement': 's'}, options['EVMAXPOWERTIME'])
-                                                            manager.parseConfiguration(self.devID+0x800, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x800:03x} EVMAXPOWERTIME2", {}, {'p': 'number', 'min': 0, 'max':43200, 'step':1, 'unit_of_measurement': 's'}, options['EVMAXPOWERTIME2'])
-                                                            manager.parseConfiguration(self.devID+0x900, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x900:03x} EVWAITTIME", {}, {'p': 'number', 'min': 3, 'max':60, 'step':1, 'unit_of_measurement': 's'}, options['EVWAITTIME'])
-                                                            manager.parseConfiguration(self.devID+0xa00, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0xa00:03x} EVMETERTYPE", {}, {'p': 'number', 'min': 0, 'max':1, 'step':1, 'unit_of_measurement': ' '}, options['EVMETERTYPE'])
-                                                            manager.parseConfiguration(self.devID+0x10A-4, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x106:03x} EV MinVoltage", {}, {'p': 'number', 'min': 200, 'max':450, 'step':1, 'unit_of_measurement': 'V'}, options['EVMINVOLTAGE'])
+                                                            manager.parseConfiguration(self.devID+0x100, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x100:03x} EV MaxCurrent", {}, {'p': 'number', 'min': 0, 'max':36, 'step':1, 'unit_of_measurement': 'A'}, [], "", options['EVMAXCURRENT'])
+                                                            manager.parseConfiguration(self.devID+0x200, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x200:03x} EVMAXPOWER", {}, {'p': 'number', 'min': 1000, 'max':25000, 'step':100, 'unit_of_measurement': 'W'}, [], "", options['EVMAXPOWER'])
+                                                            manager.parseConfiguration(self.devID+0x300, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x300:03x} EVSTARTPOWER", {}, {'p': 'number', 'min': 800, 'max':25000, 'step':100, 'unit_of_measurement': 'W'}, [], "", options['EVSTARTPOWER'])
+                                                            manager.parseConfiguration(self.devID+0x400, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x400:03x} EVSTOPTIME", {}, {'p': 'number', 'min': 5, 'max':600, 'step':1, 'unit_of_measurement': 's'}, [], "", options['EVSTOPTIME'])
+                                                            manager.parseConfiguration(self.devID+0x500, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x500:03x} EVAUTOSTART", {}, {'p': 'number', 'min': 0, 'max':2, 'step':1, 'unit_of_measurement': ' '}, [], "", options['EVAUTOSTART'])
+                                                            manager.parseConfiguration(self.devID+0x600, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x600:03x} EVMAXPOWER2", {}, {'p': 'number', 'min': 0, 'max':25000, 'step':100, 'unit_of_measurement': 'W'}, [], "", options['EVMAXPOWER2'])
+                                                            manager.parseConfiguration(self.devID+0x700, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x700:03x} EVMAXPOWERTIME", {}, {'p': 'number', 'min': 0, 'max':43200, 'step':1, 'unit_of_measurement': 's'}, [], "", options['EVMAXPOWERTIME'])
+                                                            manager.parseConfiguration(self.devID+0x800, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x800:03x} EVMAXPOWERTIME2", {}, {'p': 'number', 'min': 0, 'max':43200, 'step':1, 'unit_of_measurement': 's'}, [], "", options['EVMAXPOWERTIME2'])
+                                                            manager.parseConfiguration(self.devID+0x900, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x900:03x} EVWAITTIME", {}, {'p': 'number', 'min': 3, 'max':60, 'step':1, 'unit_of_measurement': 's'}, [], "", options['EVWAITTIME'])
+                                                            manager.parseConfiguration(self.devID+0xa00, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0xa00:03x} EVMETERTYPE", {}, {'p': 'number', 'min': 0, 'max':3, 'step':1, 'unit_of_measurement': ' '}, [], "", options['EVMETERTYPE'])
+                                                            manager.parseConfiguration(self.devID+0x10A-4, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x106:03x} EV MinVoltage", {}, {'p': 'number', 'min': 180, 'max':450, 'step':1, 'unit_of_measurement': 'V'}, [], "", options['EVMINVOLTAGE'])
                                                     elif portType == DB.PORTTYPE_IN_COUNTER:
                                                         # counter or kWh ?
                                                         # ha['device_class'] = 'energy'
