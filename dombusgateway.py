@@ -4,7 +4,7 @@
 # Written by Creasol - www.creasol.it
 #
 
-VERSION = "0.3"
+VERSION = "0.4-pre1"
 
 from dombusgateway_conf import *
 
@@ -185,7 +185,8 @@ class DomBusDevice():
         self.portConf = ''
         if self.portType in DB.PORTTYPES_NAME:
             self.portConf += f'{DB.PORTTYPES_NAME[self.portType]}'
-        if self.portOpt in DB.PORTOPTS_NAME:
+
+        if self.portOpt in DB.PORTOPTS_NAME and self.portOpt != DB.PORTOPT_NONE:  # ignore NORMAL portOpt
             self.portConf += f',{DB.PORTOPTS_NAME[self.portOpt]}'
 
         for opt in self.options:
@@ -369,12 +370,19 @@ class DomBusDevice():
                             log(DB.LOG_DEBUG,f'Removing old associated entity, topic={self.lastTopic2Config}, payload=""')
                             manager.mqttPublish(self.lastTopic2Config, "")
 
-                    log(DB.LOG_DEBUG,f"Check if FUNCTION == 3950: portType={self.portType} options={self.options}")
-                    if self.portType == DB.PORTTYPE_IN_ANALOG and 'FUNCTION' in self.options:
-                        log(DB.LOG_DEBUG,f"options['FUNCTION']={self.options['FUNCTION']}")
-                        if self.options['FUNCTION'] == '3950' and (self.ha['p'] != 'sensor' or self.ha['device_class'] != 'temperature'):
-                            self.ha = DB.PORTTYPES_HA[DB.PORTTYPE_SENSOR_TEMP].copy()    # set 'p': 'sensor', 'device_class': 'temperature', 'unit_of_measurement': '°C', 'suggested_display_precision': 1
-                            log(DB.LOG_DEBUG,f"set ha = {self.ha}")
+                    if self.portType == DB.PORTTYPE_IN_ANALOG:
+                        if 'FUNCTION' in self.options:
+                            if self.options['FUNCTION'] == '3950' and (self.ha['p'] != 'sensor' or self.ha['device_class'] != 'temperature'):
+                                self.ha = DB.PORTTYPES_HA[DB.PORTTYPE_SENSOR_TEMP].copy()    # set 'p': 'sensor', 'device_class': 'temperature', 'unit_of_measurement': '°C', 'suggested_display_precision': 1
+                    else:
+                        # not analog port => remove FUNCTION if exists
+                        if 'FUNCTION' in self.options:    
+                            del self.options['FUNCTION']
+
+                    if self.portOpt == DB.PORTOPT_INVERTED and self.port not in (DB.PORTTYPE_IN_DIGITAL, DB.PORTTYPE_OUT_DIGITAL, DB.PORTTYPE_OUT_RELAY_LP, DB.PORTTYPE_OUT_DIMMER, DB.PORTTYPE_OUT_BUZZER):
+                        self.portOpt = DB.PORTOPT_NONE   # reset INVERTED flag when port is configured as temperature, analog, ...
+
+
                     self.setTopics(self.ha['p'], "")    # update current topic
                     payload = dict(name = f"{self.portName}", friendly_name = f"{self.portName}", unique_id = 'dombus_' + self.devIDname, command_topic = f"{self.topic}/set", \
                             state_topic = f"{self.topic}/state", schema = "json")
@@ -2126,10 +2134,12 @@ class DomBusManager:
         if devID in Devices:
             d = Devices[devID]
 
-        if d:
-            # device already exist => update options and ha dictionary
+        if d and d.portType == portType:
+            # device already exist and portType not changed by the user => update options and ha dictionary
             optionsNew = d.options.copy()
             haNew = d.ha.copy()
+            self.dcmd = {}
+            self.dcmdConf = ''
         else:
             # new device
             optionsNew['A'] = 1
@@ -2137,7 +2147,7 @@ class DomBusManager:
             if portType in DB.PORTTYPES_HA:
                 haNew = DB.PORTTYPES_HA[portType].copy()
         optionsNew.update(options)
-        haNew.update(ha)
+        haNew.update(ha)    # merge existing/standard configuration with parameters set by the user
 
         # Now check parameters #TODO
         if 'DIVIDER' in optionsNew:
