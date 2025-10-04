@@ -32,6 +32,7 @@ import time
 import re
 import bisect
 import struct
+import math
 from typing import Any
 from datetime import datetime
 from queue import Queue
@@ -188,7 +189,7 @@ class DomBusDevice():
             self.portConf += f',{DB.PORTOPTS_NAME[self.portOpt]}'
 
         for opt in self.options:
-            if not ((opt == 'A' and float(self.options[opt]) == 1) or (opt == 'B' and float(self.options[opt]) == 0)): 
+            if not ((opt == 'A' and float(self.options[opt]) == 1) or (opt == 'B' and float(self.options[opt]) == 0) or opt == 'HWADDR'): 
                 self.portConf += f',{opt}={self.options[opt]}'
         if len(self.dcmdConf)>0:
             self.portConf += ',' + self.dcmdConf    # Add DCMD description as written by the user                
@@ -367,7 +368,13 @@ class DomBusDevice():
                             # portType changed => remove previous entity by sending config topic with empty payload
                             log(DB.LOG_DEBUG,f'Removing old associated entity, topic={self.lastTopic2Config}, payload=""')
                             manager.mqttPublish(self.lastTopic2Config, "")
-                        
+
+                    log(DB.LOG_DEBUG,f"Check if FUNCTION == 3950: portType={self.portType} options={self.options}")
+                    if self.portType == DB.PORTTYPE_IN_ANALOG and 'FUNCTION' in self.options:
+                        log(DB.LOG_DEBUG,f"options['FUNCTION']={self.options['FUNCTION']}")
+                        if self.options['FUNCTION'] == '3950' and (self.ha['p'] != 'sensor' or self.ha['device_class'] != 'temperature'):
+                            self.ha = DB.PORTTYPES_HA[DB.PORTTYPE_SENSOR_TEMP].copy()    # set 'p': 'sensor', 'device_class': 'temperature', 'unit_of_measurement': '°C', 'suggested_display_precision': 1
+                            log(DB.LOG_DEBUG,f"set ha = {self.ha}")
                     self.setTopics(self.ha['p'], "")    # update current topic
                     payload = dict(name = f"{self.portName}", friendly_name = f"{self.portName}", unique_id = 'dombus_' + self.devIDname, command_topic = f"{self.topic}/set", \
                             state_topic = f"{self.topic}/state", schema = "json")
@@ -1189,14 +1196,14 @@ class DomBusProtocol(asyncio.Protocol):
                                                     Ro=10000.0  # 20230703: float (was int)
                                                     To=25.0
                                                     temp=0.0  #default temperature # 20230703: float (was int)
-                                                    if (d.options['function']=='3950'):
+                                                    if (d.options['FUNCTION']=='3950'):
                                                         #value=0..65535
                                                         beta=3950
                                                         if value == 65535: value=65534  #Avoid division by zero
                                                         r = value * Ro / (65535 - value)
                                                         temp = math.log(r / Ro) / beta      # log(R/Ro) / beta
                                                         temp += 1.0 / (To + 273.15)
-                                                        temp = (1.0 /temp)-273.15, 2
+                                                        temp = (1.0 / temp) - 273.15
                                                 else:
                                                     temp = value / 10.0 - 273.1
                                                 

@@ -16,6 +16,12 @@ For info about changes in the DomBusGateway features, please check github at htt
 ## [Unreleased] 
 
 ### Added
+	Management of NTC 10k with B=3950 coefficient, connected between port and GND:
+		port must support this configuration, having the 10k pullup resistor (in some modules, the pullup resistor must be enabled by shorting a PCB jumper):
+			telnet localhost 8023 						# connect to dombus gateway
+			showmodule ff37								# select the module
+			setport N IN_ANALOG,FUNCTION=3950			# configure port a ANALOG with coeff. 3950
+		In this case the port is configured as a temperature sensor, showing the temperature in °C
 
 ### Fixed
 

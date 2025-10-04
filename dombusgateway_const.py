@@ -152,13 +152,13 @@ PORTTYPES_HA = {
     0x00000008: {'p': 'light'},
     0x00000010: {'p': 'number', 'min': 0, 'max':100, 'step':1, 'unit_of_measurement': '%'},
     0x00000020: {'p': 'select', 'options': [ 'OFF', '1', '2', '3', '4', '5' ]}, # OUT_FLASH or OUT_BUZZER (the same)
-    0x00000040: {'p': 'binary_sensor', 'device_class': 'power'},
+    0x00000040: {'p': 'binary_sensor', 'device_class': 'plug'},
     0x00000080: {'p': 'binary_sensor', 'device_class': 'door'},
     0x00000100: {'p': 'sensor', 'device_class': 'voltage', 'icon': 'mdi:current-dc', 'unit_of_measurement': 'V'},
     0x00000200: {'p': 'cover'}, # TWINBUTTON
     0x00000400: {'p': 'sensor', 'device_class': 'power', 'state_class': 'measurement', 'unit_of_measurement': 'W'},
     0x00002000: {'p': 'sensor', 'device_class': 'distance'},
-    0x00004000: {'p': 'sensor', 'device_class': 'temperature', 'unit_of_measurement': '°C', 'suggested_display_precision': 1},
+    0x00004000: {'p': 'sensor', 'device_class': 'temperature', 'unit_of_measurement': '°C', 'suggested_display_precision': 1, 'icon': 'mdi:thermometer'},
     0x00008000: {'p': 'sensor', 'device_class': 'humidity', 'unit_of_measurement': '%', 'suggested_display_precision': 0},
     0x0000C000: {'p': 'sensor', 'device_class': 'temperature'},
     0x00020000: {'p': 'binary_sensor', 'device_class': 'door'},
