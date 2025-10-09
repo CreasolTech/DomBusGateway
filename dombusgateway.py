@@ -4,7 +4,7 @@
 # Written by Creasol - www.creasol.it
 #
 
-VERSION = "0.4-pre1"
+VERSION = "0.4-pre2"
 
 from dombusgateway_conf import *
 
@@ -34,7 +34,7 @@ import bisect
 import struct
 import math
 from typing import Any
-from datetime import datetime
+import datetime
 from queue import Queue
 
 import argparse
@@ -44,13 +44,13 @@ Devices = dict()    # list of all devices (one device for each module port)
 Modules = dict()    # list of modules
 delmodules = []     # list of frameAddr that must be removed from Modules{}
 portsDisabled = dict()   # for each module, list of ports that should be disabled (not shown) # TODO: read configuration from file
+saveDataTimeout = 0 # Used to determine if device configuration changes, in that case call saveData() to save Modules and Devices structures in filesystem
 
 def log(level, msg):
     if debugLevel & level:
         logName = DB.LOGNAME[DB.LOG_NONE]
         if level in DB.LOGNAME:
             logName = DB.LOGNAME[level]
-        # print(f"{datetime.now().strftime('%H:%M:%S.%f')[:-3]} {logName}{msg}")
         logging.info(f"{logName}{msg}")
 
 def getFloat(s):
@@ -83,6 +83,12 @@ def devIDName2devID(devIDname: str) -> int:
         return None
     else:
         return devID
+
+def setSaveDataTimeout():
+    """Set saveDataTimeout: next time that Modules and Devices structures must be saved due to new device configuration or new device in the bus"""
+    global saveDataTimeout
+    saveDataTimeout = datetime.datetime.now() + datetime.timedelta(seconds=DB.SAVE_DATA_TIMEOUT)
+    log(DB.LOG_DEBUG,"####### Set saveDataTimeout ")
 
 ######################################## DomBusDevice class ###############################################    
 class DomBusDevice():
@@ -569,8 +575,10 @@ class DomBusDevice():
         diff = 0
         if portType is not None and self.portType != portType:
             self.portType = portType
+            diff |= 1
         if portOpt is not None and self.portOpt != portOpt:
             self.portOpt = portOpt
+            diff |= 2
         if dcmd:    # and self.dcmd != dcmd:
             self.dcmd = dcmd.copy()
             self.dcmdConf = dcmdConf    # "DCMD(Pulse)=1ff37.1:Toggle,DCMD(Pulse1)=10001.2:On:1m"
@@ -581,10 +589,10 @@ class DomBusDevice():
         if haOptions:
             if 'p' in haOptions and 'p' in self.ha and haOptions['p'] != self.ha['p']:
                 # changed platform
-                diff += 8       # entity must be removed and created again
+                diff |= 8       # entity must be removed and created again
                 self.ha.clear() # remove all options from ha dictionary
             self.ha.update(haOptions)
-            diff += 16
+            diff |= 16
 
         # update DomBus module configuration
         log(DB.LOG_INFO, f'Update configuration for DomBus module {self.devIDname}:\r\n  {self.portConf}')
@@ -753,15 +761,17 @@ class DomBusDevice():
         log(DB.LOG_DEBUG, f"updateDeviceConfig(): calling setPortConf()")
         self.setPortConf() # write configuration string self.portConf
         resetReq = None
-        if diff & 8:
-            # changed entity platform
-            resetReq = "reset"
-            log(DB.LOG_INFO, f"Changed entity platform to {haOptions['p']}")
+        if diff != 0:
+            setSaveDataTimeout()
+            if diff & 8:
+                # changed entity platform
+                resetReq = "reset"
+                log(DB.LOG_INFO, f"Changed entity platform to {haOptions['p']}")
 
-        if diff & 27:
-            # update HA configuration
-            log(DB.LOG_INFO, f'Update configuration to domotic controller for module {self.devIDname}:\r\n  {options}\r\n  {haOptions}')
-            self.updateFromBus(DB.UPDATE_CONFIG, None, None, resetReq)
+            if diff & 27:
+                # update HA configuration
+                log(DB.LOG_INFO, f'Update configuration to domotic controller for module {self.devIDname}:\r\n  {options}\r\n  {haOptions}')
+                self.updateFromBus(DB.UPDATE_CONFIG, None, None, resetReq)
 
         if value:
             self.updateFromBus(DB.UPDATE_VALUE, value)
@@ -1289,15 +1299,22 @@ class DomBusProtocol(asyncio.Protocol):
             moduleUpdate(1) when a packet is RXed
             moduleUpdate(2) when a packet is being TXed
         """
+        global saveDataTimeout
 
         if self.frameAddr not in Modules:
             Modules[self.frameAddr] = [0, 0, int(time.time())+3-DB.PERIODIC_STATUS_INTERVAL, 0, 'N.A.', 'N.A.']
+            setSaveDataTimeout()
             
         if what & 1: # RX packet
             Modules[self.frameAddr][DB.LASTRX] = time.time()
 
         if what & 2:  # TX packet
             Modules[self.frameAddr][DB.LASTTX] = int(time.time()*1000)
+
+        if saveDataTimeout != 0 and datetime.datetime.now() > saveDataTimeout:
+            # Must save Modules and Devices structures on filesystem
+            saveData()
+            saveDataTimeout = 0
 
     def txQueueAddConfig16(self, frameAddr, port, subcmd, value):
         """Send a CMD_CONFIG with a SUBCMD and 16bit value"""
@@ -1918,7 +1935,7 @@ class DomBusManager:
                         writer.write(b'Current devices:\r\n')
                         for d in list(Devices.keys()):
                             writer.write(f'{d:x}\r\n'.encode())
-
+                        setSaveDataTimeout()
 
 
     async def cmd_setport(self, args, writer):
@@ -2193,7 +2210,7 @@ def sigtermHandler(signum, frame):
 
 def saveData(): 
     """Save Modules, Devices dictionaries"""
-    log(DB.LOG_INFO,"Saving Modules and Devices data...")
+    log(DB.LOG_INFO,"####### Saving Modules and Devices data... #######")
     with open(modulesPath, 'w', encoding='utf-8') as f:
         json.dump(Modules, f, indent=2)
     with open(devicesPath, 'w', encoding='utf-8') as f:
@@ -2311,10 +2328,14 @@ if __name__ == "__main__":
         with open(modulesPath, 'r', encoding='utf-8') as f:
             tempdict = json.load(f)
             Modules = {int(k): v for k, v in tempdict.items()}
+    else:
+        log(DB.LOG_WARN, f"Modules data file {dataDir}/Modules.json does not exist")
     if devicesPath.exists():
         with open(devicesPath, 'r', encoding='utf-8') as f:
             tempdict = json.load(f)
             Devices = {int(k): DomBusDevice.from_dict(v) for k, v in tempdict.items()}
+    else:
+        log(DB.LOG_WARN, f"Devices data file {dataDir}/Devices.json does not exist")
     del tempdict
 
     try:
@@ -2324,5 +2345,5 @@ if __name__ == "__main__":
     except Exception as e:
         log(DB.LOG_INFO, f"Receive exception: {e}")
 
-    saveData()  # save Modules, Devices, ...         
+    if saveDataTimeout: saveData()  # save Modules, Devices, ...         
 

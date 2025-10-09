@@ -26,6 +26,8 @@ For info about changes in the DomBusGateway features, please check github at htt
 	**--data_dir** parameter to override dataDir variable in _dombusgateway_conf.py_ file: used to set the folder path where 
 		Devices and Modules are saved for the next reload (persistent data)
 
+	Save Modules and Devices dict after 15 seconds since any changes... in this way data is saved persistently even in case that a container is restarted
+
 ### Fixed
 
 ### Changed
