@@ -7,6 +7,9 @@
 # The following configuration overwrites default configuration in dombusgateway_conf.py , where you can find detail description of each parameter
 import dombusgateway_const as DB # constants
 
+#dataDir = '/data'    # directory where Devices configuration and other data will be saved. 
+                     # To get persistent data in case a docker container, use a volume: docker run -d -v dombusgateway_data:/data dombusgateway_image
+
 #debugLevel = (DB.LOG_DEBUG | DB.LOG_DUMPRX | DB.LOG_DUMPTX | DB.LOG_DUMPDCMD | DB.LOG_MQTTRX | DB.LOG_MQTTTX)
 
 # Dombus buses (1 or more serial RS485 buses attached to DomBus modules

@@ -23,6 +23,9 @@ For info about changes in the DomBusGateway features, please check github at htt
 			setport N IN_ANALOG,FUNCTION=3950			# configure port a ANALOG with coeff. 3950
 		In this case the port is configured as a temperature sensor, showing the temperature in °C
 
+	**--data_dir** parameter to override dataDir variable in _dombusgateway_conf.py_ file: used to set the folder path where 
+		Devices and Modules are saved for the next reload (persistent data)
+
 ### Fixed
 
 ### Changed

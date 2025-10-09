@@ -4,7 +4,7 @@
 
 import dombusgateway_const as DB # constants
 
-datadir = 'data'    # directory where Devices configuration and other data will be saved    
+dataDir = 'data'    # directory where Devices configuration and other data will be saved    
 
 # Debugging level (it's possible to combine more items): 
 # DB.LOG_NONE   => Nothing

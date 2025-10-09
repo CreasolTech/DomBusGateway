@@ -2231,7 +2231,9 @@ if __name__ == "__main__":
     # parsing args...
     parser = argparse.ArgumentParser(prog='DomBusGateway', description='DomBus 2 MQTT bridge')
 
-    parser.add_argument('--debug_level', '-d', type=int, default=-1,
+    parser.add_argument('--data_dir', '-dd', type=str, default='',
+            help='Data dir for persistent data (Devices and Modules): default "/data" in case of add-on or docker container, "data" in case of DomBusGateway running as a deaemon')
+    parser.add_argument('--debug_level', '-dl', type=int, default=-1,
             help='Debug level: 0=OFF, 1=Errors, 3=Warnings, 7=Info, 15=Debug, +16=RX, +32=TX, +64=DCMD, +256=MQTTRX, +512=MQTTTX, +65536=Telnet')
     parser.add_argument('--bus1_port', '-b1', type=str, default='',
             help='Serial port for bus1, for example /dev/ttyUSB0')
@@ -2253,6 +2255,7 @@ if __name__ == "__main__":
             help='Password for telnet from remote connections')
 
     args = parser.parse_args()
+    if args.data_dir and args.data_dir != '':       dataDir = args.data_dir
     if args.debug_level and args.debug_level>=0:    debugLevel = args.debug_level
     if args.bus1_port and args.bus1_port != '':
         if 1 not in buses: buses[1]={}     
@@ -2296,7 +2299,7 @@ if __name__ == "__main__":
     """handlers=[logHandler],"""
 
     # check that data directory exists
-    dataPath = Path(datadir)
+    dataPath = Path(dataDir)
     dataPath.mkdir(parents=True, exist_ok=True)
 
     modulesPath = dataPath / 'Modules.json'
