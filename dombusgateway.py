@@ -4,7 +4,7 @@
 # Written by Creasol - www.creasol.it
 #
 
-VERSION = "0.4-pre2"
+VERSION = "0.4-pre3"
 
 from dombusgateway_conf import *
 
@@ -94,6 +94,7 @@ def setSaveDataTimeout():
 class DomBusDevice():
     """Device class"""
     def __init__(self, devID : int, portType: int, portOpt: int, portName: str, options: dict, haOptions: dict, dcmd: list = [],  status: dict = {}, dcmdConf: str = ""):
+        log(DB.LOG_DEBUG, f"DomBusDevice(devID={devID:08x} portType={portType} portOpt={portOpt} portName={portName} options={options} haOptions={haOptions} dcmd={dcmd} dcmdConf={dcmdConf} status={status})")
         self.devID = int(devID) # devID=0xBBAAAAPPPP
         self.busID = devID >> 32
         self.frameAddr = self.devID >> 16     #0xBBAAAA for example 0x01ff38
@@ -217,8 +218,10 @@ class DomBusDevice():
     def to_dict(self) -> dict[str, Any]:
         """Transform DomBusDevice classes into a dictionary, to be saved in a json file"""
         status = dict(devIDname2 = self.devIDname2, value = self.value, valueHA = self.valueHA, counterValue = self.counterValue, counterTime = self.counterTime, energy = self.energy, topic2 = self.topic2, topic2Config = self.topic2Config)
+        if self.devID == 0x0100010008:
+            log(DB.LOG_DEBUG, f"to_dict: devID={self.devID:08x} devIDname={self.devIDname} portType={self.portType} portOpt={self.portOpt} ...)")
         return { 
-            'devID': self.devID, 'portType': self.portType, 'portOpt': self.portOpt, 'portName': self.portName, 'options': self.options, 
+            'devID': self.devID, 'devIDname': self.devIDname, 'portType': self.portType, 'portOpt': self.portOpt, 'portName': self.portName, 'options': self.options, 
             'ha': self.ha, 'dcmd': self.dcmd, 'status': status, 'dcmdConf': self.dcmdConf
         }
     
@@ -385,9 +388,8 @@ class DomBusDevice():
                         if 'FUNCTION' in self.options:    
                             del self.options['FUNCTION']
 
-                    if self.portOpt == DB.PORTOPT_INVERTED and self.port not in (DB.PORTTYPE_IN_DIGITAL, DB.PORTTYPE_OUT_DIGITAL, DB.PORTTYPE_OUT_RELAY_LP, DB.PORTTYPE_OUT_DIMMER, DB.PORTTYPE_OUT_BUZZER):
+                    if self.portOpt == DB.PORTOPT_INVERTED and self.portType not in (DB.PORTTYPE_IN_DIGITAL, DB.PORTTYPE_OUT_DIGITAL, DB.PORTTYPE_OUT_RELAY_LP, DB.PORTTYPE_OUT_DIMMER, DB.PORTTYPE_OUT_BUZZER):
                         self.portOpt = DB.PORTOPT_NONE   # reset INVERTED flag when port is configured as temperature, analog, ...
-
 
                     self.setTopics(self.ha['p'], "")    # update current topic
                     payload = dict(name = f"{self.portName}", friendly_name = f"{self.portName}", unique_id = 'dombus_' + self.devIDname, command_topic = f"{self.topic}/set", \
@@ -565,7 +567,7 @@ class DomBusDevice():
 
     def updateDeviceConfig(self, portType: int, portOpt: int, cal: int, dcmd: dict, dcmdConf: str, options: dict, haOptions: dict, value: int = None):
         """Port configuration change requested by the user (via telnet, for example) or by a new device read from DomBus network"""
-
+        log(DB.LOG_DEBUG, f"updateDeviceConfig(portType={portType}, portOpt={portOpt}, cal={cal}, dcmd={dcmd}, dcmdConf={dcmdConf}, options={options}, haOptions={haOptions}, value={value}")
         self.lastTopicConfig = self.topicConfig     # save previous config topic, used to remove the old entity
         self.lastTopic2Config = None
         if self.topic2Config is not None:
@@ -579,6 +581,7 @@ class DomBusDevice():
         if portOpt is not None and self.portOpt != portOpt:
             self.portOpt = portOpt
             diff |= 2
+        log(DB.LOG_DEBUG, f"self.portType={self.portType}, self.portOpt={self.portOpt}")
         if dcmd:    # and self.dcmd != dcmd:
             self.dcmd = dcmd.copy()
             self.dcmdConf = dcmdConf    # "DCMD(Pulse)=1ff37.1:Toggle,DCMD(Pulse1)=10001.2:On:1m"
@@ -758,7 +761,6 @@ class DomBusDevice():
         if 'B' not in self.options:
             self.options['B'] = 0
 
-        log(DB.LOG_DEBUG, f"updateDeviceConfig(): calling setPortConf()")
         self.setPortConf() # write configuration string self.portConf
         resetReq = None
         if diff != 0:
@@ -2147,6 +2149,7 @@ class DomBusManager:
         haNew = {}
         cal = None
         d = None
+        log(DB.LOG_DEBUG, f"parseConfiguration(devID={devID:x}, portType={portType}, portOpt={portOpt}, portName={portName}, options={options})")
 
         if devID in Devices:
             d = Devices[devID]
