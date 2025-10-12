@@ -259,4 +259,4 @@ LOGNAME = {
     LOG_TELNET:     '[TELNET] ',
 }
 
-SAVE_DATA_TIMEOUT = 5  # Save Modules and Devices after 30 seconds since last update (new device heard from bus, or new configuration
+SAVE_DATA_TIMEOUT = 15  # Save Modules and Devices after 30 seconds since last update (new device heard from bus, or new configuration
