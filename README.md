@@ -135,7 +135,13 @@ fsarchiver -v restfs dombusgatewaypis.fsa id=0,dest=${disk}1 id=1,dest=${disk}2
 Then put the microSD in the Rock PI S hardware and enjoy!
 [![DomBusGatewayPIS: DomBusGateway + mosquitto + firewall + backup system running on a Rock PI S minicomputer](https://images.creasol.it/dombusgateway_rockpis.webp)](https://store.creasol.it/dombusgatewaypis)
 
-The Rock PI S is programmed with a Linux firmware that minimize writing to disk, by having */tmp* and */var/log* partitions in ramfs (volatile memory): in this way the microSD life will be extended. It's possible to access the operating system by SSH (port 22), connecting the IP addressed assigned by DHCP (check the router or scan the network to find its IP address) using:\
+# Configuration
+
+## Configuration info for Rock PI S or other pre-built images
+
+The Rock PI S is programmed with a Linux firmware that minimize writing to disk, by having */tmp* and */var/log* partitions in ramfs (volatile memory): in this way the microSD life will be extended. 
+
+It's possible to access the operating system by SSH (port 22), connecting the IP addressed assigned by DHCP (check the router or scan the network to find its IP address) using:\
 username: **pi** , password: **arangingenni**\
 username: **root** , password: **geriandallse**
 
@@ -146,12 +152,27 @@ username: **dombus**\
 password: **secretpasswd**\
 To disable mosquitto service, just run **sudo systemctl disable mosquitto**
 
-To connect the DomBusGateway telnet interface, first connect DomBusGatewayPIS by SSH, then run the command **telnet localhost 8023**
+## Configuration of DomBusGateay
+Connect to the host running DomBusGateway by using the SSH protocol: **ssh pi@192.168.1.123**  or use **putty** from Windows.
+
+**cd  /opt/DomBusGateway/local**  to enter the configuration directory
+
+**nano dombusgateway_conf_local.py** to modify the configuration file, where several parameters are stored, like:
+
+* **dataDir**: persistent directory where devices data is stored. Set to /data in case of HAOS 
+
+* **debugLevel**: verbosity of debug information
+
+* **buses**: list of DomBus buses serial interface name (normally /dev/ttyUSB0 in case that only 1 bus is used)
+
+* **mqtt**: parameter for the MQTT broker connection
+
+* **telnet**: parameter for the telnet interface
 
 
 # Telnet command line interface
 
-It's possible to connect dombusgateway by telnet in this way:
+It's possible to connect dombusgateway by telnet in this way: first connect to the host running DomBusGateway by using SSH protocol, then type
 
 **telnet localhost 8023**
 
