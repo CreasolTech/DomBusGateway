@@ -48,6 +48,7 @@ Then it's possible to arrange entities in a custom dashboard as shown below:
 
 ![HomeAssistant Dashboard for the Home Made Wallbox using DomBusEVSE module](https://images.creasol.it/creDomBusEVSE_dashboard3.webp)
 
+Want to build a home-made EV charging station? Check our KITs: [KIT for single phase wallbox](https://store.creasol.it/EVSE1P) or [KIT for three phase wallbox](https://store.creasol.it/EVSE3P) or 
 More information about the DomBusEVSE module, that can be used to make a home made wallbox working with HomeAssistant, NodeRED, OpenHAB, Domoticz, can be found at https://www.creasol.it/EVSE and https://store.creasol.it . Also, please check the section _DomBusEVSE module to build a DIY EV charger_ below
 		
 ![DomBusGateway, a DomBus 2 MQTT bridge](https://images.creasol.it/dombusgateway_block1.webp)
@@ -165,9 +166,9 @@ Connect to the host running DomBusGateway by using the SSH protocol: **ssh pi@19
 
 * **buses**: list of DomBus buses serial interface name (normally /dev/ttyUSB0 in case that only 1 bus is used)
 
-* **mqtt**: parameter for the MQTT broker connection
+* **mqtt**: parameters for the MQTT broker connection
 
-* **telnet**: parameter for the telnet interface
+* **telnet**: parameters for the telnet interface
 
 
 # Telnet command line interface
