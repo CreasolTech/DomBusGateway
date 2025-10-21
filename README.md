@@ -48,7 +48,9 @@ Then it's possible to arrange entities in a custom dashboard as shown below:
 
 ![HomeAssistant Dashboard for the Home Made Wallbox using DomBusEVSE module](https://images.creasol.it/creDomBusEVSE_dashboard3.webp)
 
-Want to build a home-made EV charging station? Check our KITs: [KIT for single phase wallbox](https://store.creasol.it/EVSE1P) or [KIT for three phase wallbox](https://store.creasol.it/EVSE3P) or 
+**Want to build a home-made EV charging station? Check our KITs!** \
+ [KIT for single phase wallbox](https://store.creasol.it/EVSE1P) \
+ [KIT for three phase wallbox](https://store.creasol.it/EVSE3P)
 More information about the DomBusEVSE module, that can be used to make a home made wallbox working with HomeAssistant, NodeRED, OpenHAB, Domoticz, can be found at https://www.creasol.it/EVSE and https://store.creasol.it . Also, please check the section _DomBusEVSE module to build a DIY EV charger_ below
 		
 ![DomBusGateway, a DomBus 2 MQTT bridge](https://images.creasol.it/dombusgateway_block1.webp)
