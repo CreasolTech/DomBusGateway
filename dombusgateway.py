@@ -197,7 +197,7 @@ class DomBusDevice():
             self.portConf += f',{DB.PORTOPTS_NAME[self.portOpt]}'
 
         for opt in self.options:
-            if not ((opt == 'A' and float(self.options[opt]) == 1) or (opt == 'B' and float(self.options[opt]) == 0) or opt == 'HWADDR'): 
+            if not ((opt == 'A' and float(self.options[opt]) == 1) or (opt == 'B' and float(self.options[opt]) == 0) or opt == 'HWADDR' or opt == 'CAL'): 
                 self.portConf += f',{opt}={self.options[opt]}'
         if len(self.dcmdConf)>0:
             self.portConf += ',' + self.dcmdConf    # Add DCMD description as written by the user                
@@ -627,7 +627,31 @@ class DomBusDevice():
             proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET, options['ADDR'])    #EVSE: until 2023-04-24 port must be replaced with port+5 to permit changing modbus address 
             proto.send()    # Transmit
 
-        if cal and cal < 65536: # Transmit calibration or INIT parameter
+        # Check INIT and CAL options
+        if 'INIT' in options: # INIT=12345
+            try:
+                v = int(float(options['INIT']))
+            except:
+                log(DB.LOG_WARN, f"Invalid INIT value: {options['INIT']}")
+                del options['INIT'] # Invalid value
+            else:
+                if v >= 0 and v<65536:
+                    cal = v
+                else:
+                    log(DB.LOG_WARN, "INIT value must be in the range 0÷65535")
+        elif 'CAL' in options:  # CAL=-0.3
+            try:
+                v = int(float(options['CAL'])*10)
+            except:
+                log(DB.LOG_WARN, f"Invalid CAL value: {options['CAL']}")
+            else:
+                if v >= -32768 and v<32768:
+                    cal = v
+                else:
+                    log(DB.LOG_WARN, "CAL value must be in the range -3276÷3276")
+            del options['CAL'] # Remove CAL from options
+
+        if cal>=0 and cal < 65536: # Transmit calibration or INIT parameter
             proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_CALIBRATE, cal)   
             proto.send()    # Transmit
         

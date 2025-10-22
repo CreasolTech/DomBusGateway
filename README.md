@@ -48,7 +48,7 @@ Then it's possible to arrange entities in a custom dashboard as shown below:
 
 ![HomeAssistant Dashboard for the Home Made Wallbox using DomBusEVSE module](https://images.creasol.it/creDomBusEVSE_dashboard3.webp)
 
-**Want to build a home-made EV charging station? Discover our KITs!** \
+**Want to build a home-made, full features, EV charging station? Discover our KITs!** \
  [KIT for single phase wallbox](https://store.creasol.it/EVSE1P) \
  [KIT for three phase wallbox](https://store.creasol.it/EVSE3P)
 
@@ -203,7 +203,10 @@ In www.creasol.it it's possible to check information about the module to know wh
 _setport 7 IN_DIGITAL,p=binary_sensor,device_class=motion_ if port 7 is connected to a PIR (infrared motion sensor) and port have to be configured as **binary_sensor with motion class** \
 _setport 7 device_class=motion_ if the port is already configured as input and **only the class have to be changed** \
 _setport 7 SENSOR_ALARM,device_class=motion_ if the **PIR is a double-biased or triple-biased type** \
-_setport 4 IN_ANALOG,FUNCTION=3950_ if port 4 is connected to a **NTC thermistor** 10k with B=3950 coefficient \		 
+_setport 4 IN_ANALOG,FUNCTION=3950_ if port 4 is connected to a **NTC thermistor** 10k with B=3950 coefficient \
+_setport b CAL=-0.3_ to calibrate temperature sensor on a DomBusTH (port b, 11 in decimal) if the real temperature is 0.3°C below. _setport b CAL=0_ to remove any calibration \
+_setport 1 INIT=1_ to set TrackerType=1 parameter on the DomBusTracker (to configure as a Single Axis Horizontal tracker) \
+_setport 19 INIT=180_ to set TrackerPeriodCheck=180 seconds on port 19 (25 in decimal) \		 
 
 * _quit_: exit from telnet session.
 
