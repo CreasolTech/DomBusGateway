@@ -2158,11 +2158,12 @@ class DomBusManager:
 
     def showDeviceList(self, writer):
         writer.write(f"Devices (ports) for the selected module {self.selectedModule:04x} on bus {self.selectedBus:02x}:\r\n".encode())
+        writer.write(b"   Value - Port Name: Configuration\r\n")
         devIDbase = (self.selectedBus << 32) + (self.selectedModule << 16)
         for p in range(1, 512):
             devID = devIDbase + p
             if devID in Devices:
-                writer.write(f'- {Devices[devID].portName}: {Devices[devID].portConf}\r\n'.encode())
+                writer.write(f'{str(Devices[devID].valueHA):>8.8} - {Devices[devID].portName}: {Devices[devID].portConf}\r\n'.encode())
 
     def removeModule(self, devID):
         """Remove the module with specified devID from DomBusGateway and from MQTT"""

@@ -28,6 +28,10 @@ For info about changes in the DomBusGateway features, please check github at htt
 
 	Save Modules and Devices dict after 15 seconds since any changes... in this way data is saved persistently even in case that a container is restarted
 
+	Added CAL parameter, to calibrate temperature and humidity sensor
+
+	Added port value in the telnet _showmodule_ command
+
 ### Fixed
 
 ### Changed
