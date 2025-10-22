@@ -645,7 +645,9 @@ class DomBusDevice():
             except:
                 log(DB.LOG_WARN, f"Invalid CAL value: {options['CAL']}")
             else:
-                if v >= -32768 and v<32768:
+                if v>=-32768 and v<32768:
+                    if v < 0: v += 65536    # Convert in binary format, 16bit
+                    log(DB.LOG_DEBUG, f"CAL: send CAL = {v} to the device")
                     cal = v
                 else:
                     log(DB.LOG_WARN, "CAL value must be in the range -3276÷3276")
