@@ -30,7 +30,7 @@ For info about changes in the DomBusGateway features, please check github at htt
 
 	Added CAL parameter, to calibrate temperature and humidity sensor
 
-	Added port value in the telnet _showmodule_ command
+	Added port value in the telnet _showmodule_ command (feature requested by DenisV)
 
 ### Fixed
 
