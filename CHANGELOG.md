@@ -32,6 +32,11 @@ For info about changes in the DomBusGateway features, please check github at htt
 
 	Added port value in the telnet _showmodule_ command (feature requested by DenisV)
 
+	DomBusEVSE:
+		Added EVMINCURRENT and EVSOLARGRIDPOWER parameters
+
+	Enable retain messages on MQTT, to get device working after Home Assistant restart
+
 ### Fixed
 
 ### Changed

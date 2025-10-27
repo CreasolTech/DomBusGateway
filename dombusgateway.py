@@ -4,7 +4,7 @@
 # Written by Creasol - www.creasol.it
 #
 
-VERSION = "0.4-pre3"
+VERSION = "0.4-pre4"
 
 from dombusgateway_conf import *
 
@@ -372,12 +372,12 @@ class DomBusDevice():
                         # reset request, or portType changed => remove previous entity by sending config topic with empty payload
                         # log(DB.LOG_DEBUG,f'configOptions={configOptions}. self.portType={self.portType}, self.lastPortType={self.lastPortType}, self.lastTopicConfig={self.lastTopicConfig}')
                         log(DB.LOG_DEBUG,f'Removing old entity, topic={self.lastTopicConfig}, payload=""')
-                        manager.mqttPublish(self.lastTopicConfig, "")
+                        manager.mqttPublish(self.lastTopicConfig, "", retain=True)
                         self.lastPortType = self.portType
                         if self.lastTopic2Config != "":
                             # portType changed => remove previous entity by sending config topic with empty payload
                             log(DB.LOG_DEBUG,f'Removing old associated entity, topic={self.lastTopic2Config}, payload=""')
-                            manager.mqttPublish(self.lastTopic2Config, "")
+                            manager.mqttPublish(self.lastTopic2Config, "", retain=True)
 
                     if self.portType == DB.PORTTYPE_IN_ANALOG:
                         if 'FUNCTION' in self.options:
@@ -427,7 +427,7 @@ class DomBusDevice():
                             payload['unit_of_measurement'] = 'm'
                         else:
                             payload['unit_of_measurement'] = 'mm'
-                    manager.mqttPublish(self.topicConfig, payload)
+                    manager.mqttPublish(self.topicConfig, payload, retain=True)
 
                     if 'device_class' in self.ha and self.ha['device_class'] == 'power':
                         # set a second entity with energy value
@@ -436,13 +436,13 @@ class DomBusDevice():
                         payload['device_class'] = 'energy'
                         payload['state_class'] = 'total'
                         payload['unit_of_measurement'] = "kWh"
-                        manager.mqttPublish(self.topic2Config, payload)
+                        manager.mqttPublish(self.topic2Config, payload, retain=True)
                     elif self.portType == DB.PORTTYPE_SENSOR_ALARM:
                         # set a second entity showing all sensor statuses: Closed, Open, Masked, Tampered, Shorted
                         payload['p'] = 'select' # platform
                         self._initDevice2Config(payload) # init payload, topic2 and topic2 config, send empty payload to remove previous entity
                         payload['options'] = ['Closed', 'Open', 'Masked', 'Tampered', 'Shorted']
-                        manager.mqttPublish(self.topic2Config, payload)
+                        manager.mqttPublish(self.topic2Config, payload, retain=True)
                         self.lastTopic2Config = self.topic2Config
                     else:
                         # No associated device
@@ -653,7 +653,7 @@ class DomBusDevice():
                     log(DB.LOG_WARN, "CAL value must be in the range -3276÷3276")
             del options['CAL'] # Remove CAL from options
 
-        if cal>=0 and cal < 65536: # Transmit calibration or INIT parameter
+        if cal is not None and cal>=0 and cal < 65536: # Transmit calibration or INIT parameter
             proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_CALIBRATE, cal)   
             proto.send()    # Transmit
         
@@ -745,6 +745,15 @@ class DomBusDevice():
             parName = 'EVMINVOLTAGE'; 
             if parName in self.options and self.options[parName] >= 0 and self.options[parName] <= 500:
                 proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET11, options[parName])
+            parName = 'EVMINCURRENT'; 
+            if parName in self.options and self.options[parName] >= 3 and self.options[parName] <= 16:
+                proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET12, options[parName])
+            parName = 'EVSOLARGRIDPOWER'; 
+            if parName in self.options and self.options[parName] >= -30000 and self.options[parName] <= 30000:
+                v=int(options[parName])
+                if v<0: 
+                    v += 65535  # Convert to int16
+                proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET13, v)
             proto.send()
      
 
@@ -1144,6 +1153,8 @@ class DomBusProtocol(asyncio.Protocol):
                                                             options['EVWAITTIME'] = 6
                                                             options['EVMETERTYPE'] = 0
                                                             options['EVMINVOLTAGE'] = 207
+                                                            options['EVMINCURRENT'] = 6
+                                                            options['EVSOLARGRIDPOWER'] = 0
                                                             # Create virtual device EVMAXCURRENT, devID 0x104
 
                                                             manager.parseConfiguration(self.devID+0x100, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x100:03x} EV MaxCurrent", {}, {'p': 'number', 'min': 0, 'max':36, 'step':1, 'unit_of_measurement': 'A'}, [], "", options['EVMAXCURRENT'])
@@ -1157,6 +1168,8 @@ class DomBusProtocol(asyncio.Protocol):
                                                             manager.parseConfiguration(self.devID+0x900, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x900:03x} EVWAITTIME", {}, {'p': 'number', 'min': 3, 'max':60, 'step':1, 'unit_of_measurement': 's'}, [], "", options['EVWAITTIME'])
                                                             manager.parseConfiguration(self.devID+0xa00, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0xa00:03x} EVMETERTYPE", {}, {'p': 'number', 'min': 0, 'max':3, 'step':1, 'unit_of_measurement': ' '}, [], "", options['EVMETERTYPE'])
                                                             manager.parseConfiguration(self.devID+0x10A-4, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x106:03x} EV MinVoltage", {}, {'p': 'number', 'min': 180, 'max':450, 'step':1, 'unit_of_measurement': 'V'}, [], "", options['EVMINVOLTAGE'])
+                                                            manager.parseConfiguration(self.devID+0xb00, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0xb00:03x} EVMINCURRENT", {}, {'p': 'number', 'min': 3, 'max':16, 'step':1, 'unit_of_measurement': 'A'}, [], "", options['EVMINCURRENT'])
+                                                            manager.parseConfiguration(self.devID+0xc00, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0xc00:03x} EVSOLARGRIDPOWER", {}, {'p': 'number', 'min': -30000, 'max':30000, 'step':10, 'unit_of_measurement': 'W'}, [], "", options['EVSOLARGRIDPOWER'])
                                                     elif portType == DB.PORTTYPE_IN_COUNTER:
                                                         # counter or kWh ?
                                                         # ha['device_class'] = 'energy'
@@ -1742,11 +1755,11 @@ class DomBusManager:
     async def _mqttPublishFromQueue(self):
         """Process the publish queue asynchronously."""
         while self.mqttConnected:
-            topic, message = await self.loop.run_in_executor(None, self.mqttPublishQueue.get)
+            topic, message, retain = await self.loop.run_in_executor(None, self.mqttPublishQueue.get)
             # Publish the message
-            log(DB.LOG_MQTTTX, f"Publish to {topic}: {message}")
+            log(DB.LOG_MQTTTX, f"Publish to {topic}: {message}. Retain={retain}")
             try:
-                await mqtt['client'].publish(topic, message, qos=1)
+                await mqtt['client'].publish(topic, message, qos=1, retain=retain)
             except Exception as e:
                 log(DB.LOG_ERR, f"MQTT error while publishing a message: {e}\nRestart MQTT")
                 # Reconnect to MQTT broker
@@ -1755,14 +1768,14 @@ class DomBusManager:
             else:
                 self.mqttPublishQueue.task_done()
 
-    def mqttPublish(self, topic: str, payload: any):
+    def mqttPublish(self, topic: str, payload: any, retain: bool=False):
         """Send message to a queue, to send it asyncronously"""
         if isinstance(payload, (dict, list)):
             payload['_sender'] = 'dbp'  # add a tag to identify msg sent by me, to ignore loopback mqtt commands 
             message = json.dumps(payload)
         else:
             message = str(payload)
-        self.mqttPublishQueue.put((topic, message))
+        self.mqttPublishQueue.put((topic, message, retain))
 
     def isPrivateIP(self, ip_str):
         """Check if IP is in private ranges"""
@@ -1954,9 +1967,9 @@ class DomBusManager:
                                 # Matches 
                                 writer.write(f'Removing port {(d & 0xffff):x} for device {(frameAddr&0xffff):x} on bus (frameAddr>>16)...\r\n'.encode())
                                 if mqtt['enabled'] != 0:
-                                    self.mqttPublish(Devices[d].topicConfig, "") # Remove entity from HA
+                                    self.mqttPublish(Devices[d].topicConfig, "", retain=True) # Remove entity from HA
                                     if Devices[d].topic2Config:
-                                        self.mqttPublish(Devices[d].topic2Config, "") # Remove associated entity from HA
+                                        self.mqttPublish(Devices[d].topic2Config, "", retain=True) # Remove associated entity from HA
                                 del Devices[d]
                         del Modules[frameAddr]
                         # Debugging...
