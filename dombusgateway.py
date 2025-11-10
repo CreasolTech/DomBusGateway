@@ -730,10 +730,10 @@ class DomBusDevice():
             parName = 'EVMAXPOWER2'; 
             if parName in self.options and self.options[parName] >= 0 and self.options[parName] <= 25000:
                 proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET6, options[parName])
-            parName = 'EVPOWERTIME'; 
+            parName = 'EVMAXPOWERTIME'; 
             if parName in self.options and self.options[parName] >= 0 and self.options[parName] <= 43200:
                 proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET7, options[parName])
-            parName = 'EVPOWERTIME2'; 
+            parName = 'EVMAXPOWER2TIME'; 
             if parName in self.options and self.options[parName] >= 0 and self.options[parName] <= 43200:
                 proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET8, options[parName])
             parName = 'EVWAITTIME'; 
@@ -1147,9 +1147,9 @@ class DomBusProtocol(asyncio.Protocol):
                                                             options['EVSTARTPOWER'] = 1200
                                                             options['EVSTOPTIME'] = 90
                                                             options['EVAUTOSTART'] = 1
-                                                            options['EVMAXPOWER2'] = 0
                                                             options['EVMAXPOWERTIME'] = 0
-                                                            options['EVMAXPOWERTIME2'] = 0
+                                                            options['EVMAXPOWER2'] = 0
+                                                            options['EVMAXPOWER2TIME'] = 0
                                                             options['EVWAITTIME'] = 6
                                                             options['EVMETERTYPE'] = 0
                                                             options['EVMINVOLTAGE'] = 207
@@ -1164,7 +1164,7 @@ class DomBusProtocol(asyncio.Protocol):
                                                             manager.parseConfiguration(self.devID+0x500, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x500:03x} EVAUTOSTART", {}, {'p': 'number', 'min': 0, 'max':2, 'step':1, 'unit_of_measurement': ' '}, [], "", options['EVAUTOSTART'])
                                                             manager.parseConfiguration(self.devID+0x600, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x600:03x} EVMAXPOWER2", {}, {'p': 'number', 'min': 0, 'max':25000, 'step':100, 'unit_of_measurement': 'W'}, [], "", options['EVMAXPOWER2'])
                                                             manager.parseConfiguration(self.devID+0x700, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x700:03x} EVMAXPOWERTIME", {}, {'p': 'number', 'min': 0, 'max':43200, 'step':1, 'unit_of_measurement': 's'}, [], "", options['EVMAXPOWERTIME'])
-                                                            manager.parseConfiguration(self.devID+0x800, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x800:03x} EVMAXPOWERTIME2", {}, {'p': 'number', 'min': 0, 'max':43200, 'step':1, 'unit_of_measurement': 's'}, [], "", options['EVMAXPOWERTIME2'])
+                                                            manager.parseConfiguration(self.devID+0x800, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x800:03x} EVMAXPOWER2TIME", {}, {'p': 'number', 'min': 0, 'max':43200, 'step':1, 'unit_of_measurement': 's'}, [], "", options['EVMAXPOWER2TIME'])
                                                             manager.parseConfiguration(self.devID+0x900, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x900:03x} EVWAITTIME", {}, {'p': 'number', 'min': 3, 'max':60, 'step':1, 'unit_of_measurement': 's'}, [], "", options['EVWAITTIME'])
                                                             manager.parseConfiguration(self.devID+0xa00, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0xa00:03x} EVMETERTYPE", {}, {'p': 'number', 'min': 0, 'max':3, 'step':1, 'unit_of_measurement': ' '}, [], "", options['EVMETERTYPE'])
                                                             manager.parseConfiguration(self.devID+0x10A-4, DB.PORTTYPE_CUSTOM, DB.PORTOPT_DIMMER, f"P{port+0x106:03x} EV MinVoltage", {}, {'p': 'number', 'min': 180, 'max':450, 'step':1, 'unit_of_measurement': 'V'}, [], "", options['EVMINVOLTAGE'])
@@ -1406,7 +1406,7 @@ class DomBusProtocol(asyncio.Protocol):
             for f in self.txQueue[frameAddr][:]:
                 #Log(LOG_DEBUG,"f="+str(f))
                 #f=[cmd,cmdlen,cmdAck,port,args[],retries]
-                if (((cmd&port)==255) or (f[DB.TXQ_CMD]==cmd and f[DB.TXQ_PORT]==port and (len(f[DB.TXQ_ARGS])==0 or f[DB.TXQ_ARGS][0]==arg1))):
+                if ((cmd&port)==255) or (f[DB.TXQ_CMD]==cmd and f[DB.TXQ_PORT]==port and (len(f[DB.TXQ_ARGS])==0 or f[DB.TXQ_ARGS][0]==arg1)) and f[DB.TXQ_RETRIES]!=DB.TX_RETRY:
                     # log(DB.LOG_DEBUG, f"txQueueRemove(): remove frame from the queue: frameAddr={frameAddr:06x} cmd={cmd:02x} port={port:02x} arg1={arg1:02x}")
                     self.txQueue[frameAddr].remove(f)
 
