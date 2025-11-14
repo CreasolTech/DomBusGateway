@@ -288,7 +288,7 @@ Software is written by Creasol, https://www.creasol.it with the valuable help of
 
 Below a list of modules, produced in Italy by Creasol, designed for high reliability and optimized for very very low power consumption.
 
-[<img src="https://images.creasol.it/pdf2.png" alt="Video" style="vertical-align: middle;"> Download the PDF catalog!](https://www.creasol.it/catalog)
+[<img src="https://images.creasol.it/pdf2.png" alt="Video" style="vertical-align: middle;"> Download the PDF catalog with application notes!](https://www.creasol.it/catalog)
 
 
 Our industrial and home automation modules are designed to be
