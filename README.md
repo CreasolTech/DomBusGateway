@@ -1,9 +1,13 @@
 # DomBusGateway
 Gateway that **interfaces one or more DomBus networks of home automation modules with MQTT AutoDiscovery**
 
-## What is DomBusGateway Home Assistant addon
+It's available in three ways:
 
-This is an addon that can be automatically installed into HAOS (Home Assistant Operating System) by clicking on Settings -> Addon
+1. DomBusGateway software : python service that can be installed in any computer
+1. [DomBusGateway addon for HAOS and Home Assistant Supervised](https://github.com/CreasolTech/homeassistant-addons)
+1. [DomBusGatewayPIS, a ready-to-use hardware connecting 1 or more DomBus buses, with LAN to exchange data by MQTT / MQTTAD](https://store.creasol.it/DomBusGatewayPIS)
+
+![DomBusGateway, a DomBus 2 MQTT bridge](https://images.creasol.it/dombusgateway_block1.webp)
 
 
 ## What is DomBus?
@@ -14,6 +18,11 @@ It's a **multi-master protocol**, where each **DomBus module can start communica
 
 Also, it supports the so-called *DCMD*, commands sent between modules triggered by a input change or when a condition becomes true. **DCMD can be used to realize simple automations that work even when the main controller (Domoticz, Home Assistant, ...) is frozen or OFF, similarly to [KNX](https://www.knx.org/)**.
 
+## Why a wired bus instead of a wireless connection?
+1. **High reliability and security**
+1. **Easy connection** (thin alarm cable, 4x0.22mm², easy to route and connect)
+1. Exchange data, but **also provides 13.8V power supply, with lead-acid backup battery for systems working also in case of blackout**
+1. **Very very low energy consumption**: modules usually consume only 10÷15mW; relays module add about 60mW for each relay ON. Please compare with other systems!
 
 ## What are DomBus modules?
 
@@ -42,19 +51,20 @@ Modbus may be used for relay modules, EVSE module (to make your own electric veh
 
 ## Example: DomBusEVSE module used to make a Smart Wallbox with Home Assistant
 
-Using DomBusGateway software, Home Assistant is able to automatically create, read and manage all entities of the DomBusEVSE module: MQTT integration have to be enabled, of course!
+**Using DomBusGateway software, hardware or add-on, Home Assistant is able to automatically create, read and manage all entities** of the DomBusEVSE module: MQTT integration have to be enabled, of course!
 
 Then it's possible to arrange entities in a custom dashboard as shown below:
 
 ![HomeAssistant Dashboard for the Home Made Wallbox using DomBusEVSE module](https://images.creasol.it/creDomBusEVSE_dashboard3.webp)
 
-**Want to build a home-made, full features, EV charging station? Discover our KITs!** \
- [KIT for single phase wallbox](https://store.creasol.it/EVSE1P) \
- [KIT for three phase wallbox](https://store.creasol.it/EVSE3P)
-
-More information about the DomBusEVSE module, that can be used to make a home made wallbox working with HomeAssistant, NodeRED, OpenHAB, Domoticz, can be found at https://www.creasol.it/EVSE and https://store.creasol.it . Also, please check the section _DomBusEVSE module to build a DIY EV charger_ below
+**Want to build a home-made, full features, EV charging station? Discover our KITs!** 
+* [KIT for single phase wallbox](https://store.creasol.it/EVSE1P) 
+* [KIT for three phase wallbox](https://store.creasol.it/EVSE3P)
+* [More info about the DomBusEVSE module with Home Assistant](https://www.creasol.it/EVSEHA)
+* [More info about the DomBusEVSE module](https://www.creasol.it/EVSE) 
+* Also, please check the section _DomBusEVSE module to build a DIY EV charger_ below
 		
-![DomBusGateway, a DomBus 2 MQTT bridge](https://images.creasol.it/dombusgateway_block1.webp)
+
 ## How does DomBusGateway work?
 
 DomBusGateway software, hardware and addons work with one or more networks of DomBus modules equipped with DomBus protocol firmware.  Modbus firmware is not supported!
