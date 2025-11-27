@@ -156,7 +156,7 @@ username: **dombus**\
 password: **secretpasswd**\
 To disable mosquitto service, just run **sudo systemctl disable mosquitto**
 
-## Configuration of DomBusGateay
+## Configuration of DomBusGateway
 Connect to the host running DomBusGateway by using the SSH protocol: **ssh pi@192.168.1.123**  or use **putty** from Windows.
 
 **cd  /opt/DomBusGateway/local**  to enter the configuration directory
