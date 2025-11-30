@@ -257,8 +257,8 @@ In this case you have to configure *P0c Grid Power* as a number entity, in this 
 * select EVSE module _showmodule ffe3_
 * set port 0c as platform number, with min value = -12000W and max value = 12000W (depending by your solar and contractual power)  _setport c p=number,min=-12000,max=12000_
 
-## Example of an automations to update *P0c Grid Power* {#evse-automation}
-
+## Example of an automations to update *P0c Grid Power*
+<a name="evse-automation"></a>
 ### Bidirectional pulse miter, with pulse outputs connected to DomBus12 on io7 (imported energy) and io8 (exported energy)
 
 This automation sends the value ImportPower - ExportPower to the *P0c Grid Power* entity:
