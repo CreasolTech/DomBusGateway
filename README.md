@@ -225,7 +225,10 @@ _setport 1 INIT=1_ to set TrackerType=1 parameter on the DomBusTracker (to confi
 \
 _setport 19 INIT=180_ to set TrackerPeriodCheck=180 seconds on port 19 (25 in decimal) \
 \
-_setport d ADDR=2_ to set meter address to 2 on a DomBusEVSE 
+_setport d ADDR=2_ to set meter address from 1 (default) to 2 (for the EV meter) on a DomBusEVSE \
+_setport d ADDR=3_ to set meter address from 1 (default) to 3 (for the Grid meter) on a DomBusEVSE \		 
+_setport c ADDR=1_ to set meter address from 3 to 1 on a DomBusEVSE \ 
+_setport b ADDR=1_ to set meter address from 2 to 1 on a DomBusEVSE  
 
 * _quit_: exit from telnet session.
 

@@ -628,6 +628,7 @@ class DomBusDevice():
                 # proto.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, self.port, [DB.SUBCMD_SET, (newModbusAddr>>8), (newModbusAddr&0xff)], DB.TX_RETRY, 1)    #EVSE: until 2023-04-24 port must be replaced with port+5 to permit changing modbus address 
                 proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET, options['ADDR'])
                 proto.send()    # Transmit
+                del self.options['ADDR']
 
         # Check INIT and CAL options
         if 'INIT' in options: # INIT=12345
