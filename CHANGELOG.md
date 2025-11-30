@@ -16,6 +16,14 @@ For info about changes in the DomBusGateway features, please check github at htt
 ## [Unreleased] 
 
 ### Added
+
+### Changed
+
+### Removed
+
+## [0.4] 2025-11-30
+
+### Added
 	Management of NTC 10k with B=3950 coefficient, connected between port and GND:
 		port must support this configuration, having the 10k pullup resistor (in some modules, the pullup resistor must be enabled by shorting a PCB jumper):
 			telnet localhost 8023 						# connect to dombus gateway
@@ -38,10 +46,8 @@ For info about changes in the DomBusGateway features, please check github at htt
 	Enable retain messages on MQTT, to get device working after Home Assistant restart
 
 ### Fixed
-
-### Changed
-
-### Removed
+	DomBusEVSE:
+		Now ADDR command works again. It works also with port c (GridPower) but only with firmware 02k3 or successive
 
 ## [0.3] 2025-09-26 
 

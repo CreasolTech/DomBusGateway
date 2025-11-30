@@ -4,7 +4,7 @@
 # Written by Creasol - www.creasol.it
 #
 
-VERSION = "0.4-pre4"
+VERSION = "0.4"
 
 from dombusgateway_conf import *
 
@@ -581,7 +581,7 @@ class DomBusDevice():
         if portOpt is not None and self.portOpt != portOpt:
             self.portOpt = portOpt
             diff |= 2
-        log(DB.LOG_DEBUG, f"self.portType={self.portType}, self.portOpt={self.portOpt}")
+        log(DB.LOG_DEBUG, f"self.portType={self.portType:x}, self.portOpt={self.portOpt:x}")
         if dcmd:    # and self.dcmd != dcmd:
             self.dcmd = dcmd.copy()
             self.dcmdConf = dcmdConf    # "DCMD(Pulse)=1ff37.1:Toggle,DCMD(Pulse1)=10001.2:On:1m"
@@ -621,11 +621,13 @@ class DomBusDevice():
             proto.txQueueAdd(self.frameAddr, DB.CMD_DCMD_CONFIG, 2, 0, self.port, [ DB.DCMD_IN_EVENTS["NONE"] ], DB.TX_RETRY, 1)
         proto.send()    # Transmit!
 
-        if 'ADDR' in options and options['ADDR']>0 and options['ADDR']<248:
-            log(DB.LOG_INFO, f"Send command to change modbus device address to {options['ADDR']}")
-            # proto.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, self.port, [DB.SUBCMD_SET, (newModbusAddr>>8), (newModbusAddr&0xff)], DB.TX_RETRY, 1)    #EVSE: until 2023-04-24 port must be replaced with port+5 to permit changing modbus address 
-            proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET, options['ADDR'])    #EVSE: until 2023-04-24 port must be replaced with port+5 to permit changing modbus address 
-            proto.send()    # Transmit
+        if 'ADDR' in options:
+            options['ADDR'] = int(float(options['ADDR']))
+            if options['ADDR']>0 and options['ADDR']<248:
+                log(DB.LOG_INFO, f"Send command to change modbus device address to {options['ADDR']}")
+                # proto.txQueueAdd(self.frameAddr, DB.CMD_CONFIG, 4, 0, self.port, [DB.SUBCMD_SET, (newModbusAddr>>8), (newModbusAddr&0xff)], DB.TX_RETRY, 1)    #EVSE: until 2023-04-24 port must be replaced with port+5 to permit changing modbus address 
+                proto.txQueueAddConfig16(self.frameAddr, self.port, DB.SUBCMD_SET, options['ADDR'])
+                proto.send()    # Transmit
 
         # Check INIT and CAL options
         if 'INIT' in options: # INIT=12345
