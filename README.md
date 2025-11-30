@@ -250,14 +250,14 @@ Wiring diagrams to make the charging station, single phase or three phase, is av
 
 **The EVSE module is programmed to work, by default, with two energy meters** (one to measure the Grid power, and one to measure the EV power, energy, voltage, PF) connected to the 2nd RS485 bus available on the module: in this case the charging station can work independently from the home automation system.
 
-**As most probably the user already have an energy meter measuring grid power (sometimes included in hybrid solar inverters), it's possible to avoid installing a new energy meter for the grid power by implementing a simple automation that sends the current value of power from the grid**, positive when importing energy, negative when exporting, **to the *P0c Grid Power* entity**. Similarly, for buildings having a stationary battery, it's good to send to the EVSE module the value *Power_from_the_grid* + *Power_from_the_battery* : in this case, when charging the EV in *Solar* mode, the EVSE module works to have *P0c Grid Power*=0 that means *"do not use energy from the grid, nor energy from the stationary battery, but consume only energy from the photovoltaic"*. The same in case of wind, hydro or other power sources. In this case the charging station needs that home automation system works, sending the right value of power from the Grid or Grid-Battery.
+**As most probably the user already have an energy meter measuring grid power (sometimes included in hybrid solar inverters), it's possible to avoid installing a new energy meter for the grid power by implementing a [simple automation](#evse-automation) that sends the current value of power from the grid**, positive when importing energy, negative when exporting, **to the *P0c Grid Power* entity**. Similarly, for buildings having a stationary battery, it's good to send to the EVSE module the value *Power_from_the_grid* + *Power_from_the_battery* : in this case, when charging the EV in *Solar* mode, the EVSE module works to have *P0c Grid Power*=0 that means *"do not use energy from the grid, nor energy from the stationary battery, but consume only energy from the photovoltaic"*. The same in case of wind, hydro or other power sources. In this case the charging station needs that home automation system works, sending the right value of power from the Grid or Grid-Battery.
 In this case you have to configure *P0c Grid Power* as a number entity, in this way:
 * open a telnet connection with DomBusGateway _telnet localhost 8023_
 * select bus, if needed (default=bus1) _showbus 2_
 * select EVSE module _showmodule ffe3_
 * set port 0c as platform number, with min value = -12000W and max value = 12000W (depending by your solar and contractual power)  _setport c p=number,min=-12000,max=12000_
 
-Example of an automation for HA that sends (ImportPower - ExportPower) to the *P0c Grid Power* device:
+Example of an automation for HA that sends (ImportPower - ExportPower) to the *P0c Grid Power* device: {#evse-automation}
 
 ```
 - id: '1750798854962'
