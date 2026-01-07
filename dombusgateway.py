@@ -40,6 +40,8 @@ from queue import Queue
 import argparse
 import ipaddress
 
+import statistics
+
 Devices = dict()    # list of all devices (one device for each module port)
 Modules = dict()    # list of modules
 delmodules = []     # list of frameAddr that must be removed from Modules{}
@@ -90,6 +92,22 @@ def setSaveDataTimeout():
     saveDataTimeout = datetime.datetime.now() + datetime.timedelta(seconds=DB.SAVE_DATA_TIMEOUT)
     log(DB.LOG_DEBUG,"####### Set saveDataTimeout ")
 
+    
+class Smoother:
+    """Class to smooth temperature values by checking the last 4 temperatures"""
+    def __init__(self):
+        self._buffer = []
+        self._window_size = 4
+
+    def update(self, new_temp):
+        self._buffer.append(new_temp)
+        if len(self._buffer) > self._window_size:
+            self._buffer.pop(0)
+
+        # Use median to ignore outliers
+        return statistics.median(self._buffer)
+
+
 ######################################## DomBusDevice class ###############################################    
 class DomBusDevice():
     """Device class"""
@@ -109,6 +127,7 @@ class DomBusDevice():
         self.dcmd = dcmd
         self.dcmdConf = dcmdConf
         self.ha = {}
+        self.avg = None # Average value
 
         if options:
             self.options = options.copy()
@@ -125,6 +144,9 @@ class DomBusDevice():
             self.ha['p'] = 'switch'  # default entity platform
         if haOptions:
             self.ha.update(haOptions)
+
+        if 'device_class' in self.ha and self.ha['device_class'] == 'temperature':
+            self.avg = Smoother()
 
         self.setPortConf() # write configuration string self.portConf=IN_DIGITAL,PULLUP,INVERTED,...
         self.lastUpdate = int(time.time())
@@ -351,7 +373,8 @@ class DomBusDevice():
                         else:
                             payload = int(self.energy * 1000) / 1000    # energy, with Wh resolution
                         manager.mqttPublish(self.topic2 + '/state', payload)
-                            
+            self.lastValue = value
+                        
 
         if what & DB.UPDATE_ACK:
             # Received and ACK to a SET command I sent before. Controller (HA) sent a SET command, now I have to confirm it!
@@ -1268,12 +1291,18 @@ class DomBusProtocol(asyncio.Protocol):
                                                         temp = (1.0 / temp) - 273.15
                                                 else:
                                                     temp = value / 10.0 - 273.1
-                                                
+                                                temp = round(temp, 2)
+                                                """
                                                 # compute the averaged temperature and save it in d.Options[]
-                                                if abs(d.lastValue - temp)<1.5:
+                                                if abs(d.lastValue - temp)<3:
                                                     # compute the average value
-                                                    temp = (d.lastValue*5 + temp) / 6
-                                                value = round(temp, 1)
+                                                    avg = (d.lastValue*7 + temp) / 8
+                                                else:
+                                                    avg = (d.lastValue*2 + temp) / 3
+                                                value = round(avg, 2)
+                                                """
+                                                value = d.avg.update(temp)
+                                                #log(DB.LOG_INFO, f"Temp={temp} Avg={d.lastValue} value={value}")
                                             elif d.ha['device_class'] == 'power':
                                                 # EV GRID, transmitting only power (not energy)
                                                 # check if value is negative

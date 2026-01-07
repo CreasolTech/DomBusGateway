@@ -11,15 +11,22 @@ For info about changes in the DomBusGateway features, please check github at htt
 
 ### Added
 
+### Changed
+
+### Removed
+
 ### Fixed
 
-## [Unreleased] 
+## [0.5 pre] 
 
 ### Added
+	Smoothing algorithm for NTC temperature sensors, to get a smooth chart
 
 ### Changed
 
 ### Removed
+
+### Fixed
 
 ## [0.4] 2025-11-30
 
