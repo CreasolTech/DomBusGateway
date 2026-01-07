@@ -1301,8 +1301,8 @@ class DomBusProtocol(asyncio.Protocol):
                                                     avg = (d.lastValue*2 + temp) / 3
                                                 value = round(avg, 2)
                                                 """
-                                                value = d.avg.update(temp)
-                                                #log(DB.LOG_INFO, f"Temp={temp} Avg={d.lastValue} value={value}")
+                                                value = round(d.avg.update(temp), 2)
+                                                log(DB.LOG_INFO, f"Temp={temp} Avg={d.lastValue} value={value}")
                                             elif d.ha['device_class'] == 'power':
                                                 # EV GRID, transmitting only power (not energy)
                                                 # check if value is negative
