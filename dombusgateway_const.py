@@ -56,6 +56,10 @@ SUBCMD_SET8=0x08                #Send parameter 8 (16bit value)
 SUBCMD_SET9=0x09                #Send parameter 9 (16bit value)
 SUBCMD_SET10=0x0a               #Send parameter 10 (16bit value)
 SUBCMD_SET11=0x0b               #Send parameter 11 (16bit value)
+SUBCMD_SET12=0x0c               #Send parameter 12 (16bit value)
+SUBCMD_SET13=0x0d               #Send parameter 13 (16bit value)
+SUBCMD_SET14=0x0e               #Send parameter 14 (16bit value)
+SUBCMD_SET15=0x0f               #Send parameter 15 (16bit value)
 SUBCMD_SETMAX=0x10              #Send parameter 16
 
 PORTTYPE_DISABLED=0x0000        #port not used
@@ -189,7 +193,7 @@ PORTOPTS_NAME={
     
 SENSOR_ALARM_NAME = [ 'Closed', 'Open', 'Masked', 'Tampered', 'Shorted' ]   # state name for triple-biased alarm sensor
 
-OPTIONS_NAMES = [ 'A', 'B', 'PRECISION', 'DIVIDER', 'OPPOSITE', 'FUNCTION', 'HWADDR', 'ADDR', 'CAL', 'INIT', 'PAR1', 'PAR2', 'PAR3', 'PAR4' ]
+OPTIONS_NAMES = [ 'A', 'B', 'PRECISION', 'DIVIDER', 'OPPOSITE', 'FUNCTION', 'HWADDR', 'ADDR', 'CAL', 'INIT', 'PAR1', 'PAR2', 'PAR3', 'PAR4', 'EVMAXCURRENT', 'EVMAXPOWER', 'EVSTARTPOWER', 'EVSTOPTIME', 'EVAUTOSTART', 'EVMAXPOWERTIME', 'EVMAXPOWER2', 'EVMAXPOWER2TIME', 'EVWAITTIME', 'EVMETERTYPE', 'EVMINVOLTAGE', 'EVMINCURRENT', 'EVSOLARGRIDPOWER' ]
 
 HA_NAMES = [ 'p', 'device_class', 'unit_of_measurement', 'payload_on', 'payload_off', 'min', 'max', 'step', 'options', 'icons' ]        
 

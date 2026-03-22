@@ -1776,15 +1776,14 @@ class DomBusManager:
                     f = str(message.topic).split('/')
                     # log(DB.LOG_MQTTRX, f"len(f)={len(f)} f={f}")
                     if len(f)>=4 and f[0] == mqtt['topic']:
-                        # log(DB.LOG_MQTTRX, f"f[2]={f[2]}")
-                        newdevID = devIDName2devID(f[2])
-                        if newdevID and newdevID in Devices:
+                        devID = devIDName2devID(f[2])
+                        if devID and devID in Devices:
                             # Device exists
-                            d = Devices[newdevID]
+                            d = Devices[devID]
                             log(DB.LOG_MQTTRX, f"call updateToBus(DB.UPDATE_VALUE, {message.payload.decode()})")
                             d.updateToBus(DB.UPDATE_VALUE, message.payload.decode())
                         else:
-                            log(DB.LOG_MQTTRX, f"Unknown device {newdevID}")
+                            log(DB.LOG_MQTTRX, f"Unknown device {devID}")
                     else:
                         log(DB.LOG_MQTTRX, f"Received topic not in valid format: len(f)={len(f)} f[0]={f[0]}")
             # else:
@@ -2248,20 +2247,29 @@ class DomBusManager:
         optionsNew.update(options)
         haNew.update(ha)    # merge existing/standard configuration with parameters set by the user
 
-        # Now check parameters #TODO
-        if 'DIVIDER' in optionsNew:
-            optionsNew['A'] = 1 / float(optionsNew['DIVIDER'])
-        if 'A' in optionsNew:
-            optionsNew['A'] = float(optionsNew['A'])
-        if 'B' in optionsNew:
-            optionsNew['B'] = float(optionsNew['B'])
-        if 'PRECISION' in optionsNew:
-            try:
-                precision = int(optionsNew['PRECISION'])
-            except:
-                log(DB.LOG_ERR, f"Invalid precision: should be a positive number indicating the number of digits after the decimal point")
-            else:                
-                optionsNew['PRECISION'] = precision
+        # Now check parameters
+        # convert from string to integer/float
+        for o in optionsNew:
+            if o in ['PRECISION', 'DIVIDER', 'ADDR', 'INIT', 'PAR1', 'PAR2', 'PAR3', 'PAR4', 'EVMAXCURRENT', 'EVMAXPOWER', 'EVSTARTPOWER', 'EVSTOPTIME', 'EVAUTOSTART', 'EVMAXPOWERTIME', 'EVMAXPOWER2', 'EVMAXPOWER2TIME', 'EVWAITTIME', 'EVMETERTYPE', 'EVMINVOLTAGE', 'EVMINCURRENT', 'EVSOLARGRIDPOWER']:
+                # integer option
+                try:
+                    val = int(optionsNew[o])
+                except:
+                    log(DB.LOG_ERR, f"Invalid value for option {o}: must be a integer number!")
+                else:
+                    optionsNew[o] = val
+                    if o == 'PRECISION':
+                        precision = val
+                    elif o == 'DIVIDER':
+                        optionsNew['A'] = 1 / float(val)
+            elif o in ['A', 'B']:
+                try:
+                    val = float(optionsNew[o])
+                except:
+                    log(DB.LOG_ERR, f"Invalid value for option {o}: must be a float number!")
+                else:
+                    optionsNew[o] = val
+
 
         # Create device, if not exist
         if not d:
