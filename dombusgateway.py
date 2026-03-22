@@ -567,14 +567,19 @@ class DomBusDevice():
                 else:
                     log(DB.LOG_ERR, f"Invalid value type from MQTT: value={valueHA}, type={type(valueHA)}")  
                     error = True
-                if 'device_class' in self.ha and self.ha['device_class'] == 'power':
+                if ('device_class' in self.ha and self.ha['device_class'] == 'power') or self.portOpt==DB.PORTOPT_IMPORT_ENERGY or self.portOpt==DB.PORTOPT_EXPORT_ENERGY:
                     if value < 0:
                         value += 65536  # Negative power => convert to int(16)
                 if error == False:
                     if buses[self.busID]['protocol'] != None:
                         log(DB.LOG_DEBUG, f"TX to DomBus module {self.frameAddr:06x}, on port {self.port:02x}, value={value}")
                         if self.port < 0x80:
-                            buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_SET, 2, 0, self.port, [value], DB.TX_RETRY, 1)
+                            if self.portType == DB.PORTTYPE_IN_COUNTER or self.portType == DB.PORTTYPE_IN_ANALOG or self.portType == DB.PORTTYPE_OUT_ANALOG or (self.portType == DB.PORTTYPE_CUSTOM and (self.portOpt == DB.PORTOPT_IMPORT_ENERGY or self.portOpt == DB.PORTOPT_EXPORT_ENERGY)):
+                                # 16 bit value
+                                buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_SET, 4, 0, self.port, [(value>>8)&0xff, value&0xff, 0], DB.TX_RETRY, 1)
+                            else:
+                                #8 bit value
+                                buses[self.busID]['protocol'].txQueueAdd(self.frameAddr, DB.CMD_SET, 2, 0, self.port, [value], DB.TX_RETRY, 1)
                         elif self.port >= 0x100 and self.port < 0x1000:
                             # send DB.CMD_CONFIG, port (port&0x7f), DB.SUBCMD_SETx (port>>8), 16bit value
                             buses[self.busID]['protocol'].txQueueAddConfig16(self.frameAddr, self.port & 0x7f, self.port >> 8, value)
@@ -1375,7 +1380,7 @@ class DomBusProtocol(asyncio.Protocol):
         global saveDataTimeout
 
         if self.frameAddr not in Modules:
-            Modules[self.frameAddr] = [0, 0, int(time.time())+3-DB.PERIODIC_STATUS_INTERVAL, 0, 'N.A.', 'N.A.']
+            Modules[self.frameAddr] = [0, 0, int(time.time())+3-DB.PERIODIC_STATUS_INTERVAL, 0, '', '']
             setSaveDataTimeout()
             
         if what & 1: # RX packet
@@ -1629,7 +1634,7 @@ class DomBusManager:
                 'help': 'Show data about the specified module: e.g. "showmodule ffe3"' },
             'rmmodule':   { 
                 'cmd': self.cmd_rmmodule, 
-                'help': 'Remove a module from DomBusGateway and MQTT controller (Home Assistant, ...):\r\ne.g. "rmmodule ffe3"' },
+                'help': 'Remove one or more modules from DomBusGateway and home automation system:\r\ne.g. "rmmodule ffe3" or "rmmodule ffe3 1201 5102" to remove 3 devices'  },
             'setport':  {
                 'cmd': self.cmd_setport,
                 'help': 'Configure the specified port: "showbus" and "showmodule" commands have to be invoked\r\nto select the module to be configured. Examples:\r\n"setport 01 IN_ANALOG,A=0.00042" to set port 1 as analog input, specifying the A coefficient\r\n"setport 02 IN_DIGITAL,INVERTED" to set port 2 as digital input with inverted logic\r\n(On when port 2 is pulled to GND, Off when left open)\r\n"setport c p=binary_sensor,device_class=window" to set entity platform and class' },
@@ -1769,19 +1774,21 @@ class DomBusManager:
                     # check topic  /dombus/platform/devID/set
                     # check topic  /dombus/platform/devID/state  Off
                     f = str(message.topic).split('/')
+                    # log(DB.LOG_MQTTRX, f"len(f)={len(f)} f={f}")
                     if len(f)>=4 and f[0] == mqtt['topic']:
-
-                        devID = devIDName2devID(f[2])
-                        if devID and devID in Devices:
+                        # log(DB.LOG_MQTTRX, f"f[2]={f[2]}")
+                        newdevID = devIDName2devID(f[2])
+                        if newdevID and newdevID in Devices:
                             # Device exists
-                            d = Devices[devID]
+                            d = Devices[newdevID]
+                            log(DB.LOG_MQTTRX, f"call updateToBus(DB.UPDATE_VALUE, {message.payload.decode()})")
                             d.updateToBus(DB.UPDATE_VALUE, message.payload.decode())
                         else:
-                            log(DB.LOG_MQTTRX, f"Unknown device {devID}")
+                            log(DB.LOG_MQTTRX, f"Unknown device {newdevID}")
                     else:
-                        log(DB.LOG_MQTTRX, "Received topic not in valid format")
-#            else:
-#                log(DB.LOG_DEBUG, f"Received ignored msg from {message.topic}: {message.payload.decode()}")
+                        log(DB.LOG_MQTTRX, f"Received topic not in valid format: len(f)={len(f)} f[0]={f[0]}")
+            # else:
+            #     log(DB.LOG_DEBUG, f"Received ignored msg from {message.topic}: {message.payload.decode()}")
    
 
     async def _mqttPublishFromQueue(self):
@@ -1977,7 +1984,7 @@ class DomBusManager:
             try:
                 addr = int(arg, 16)
             except ValueError:
-                writer.write(f'Invalid module address: {arg}. Must be like "ffe3" or "1" or "123c"!\r\n'.encode())
+                writer.write(f'Invalid module address: {arg}. Must be like "ffe3" or "1" or "123c"\r\n'.encode())
             else:
                 frameAddr = None
                 if addr == 0 or addr == 0xffff:

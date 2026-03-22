@@ -267,11 +267,60 @@ In this case you have to configure *P0c Grid Power* as a number entity, in this 
 * open a telnet connection with DomBusGateway _telnet localhost 8023_
 * select bus, if needed (default=bus1) _showbus 2_
 * select EVSE module _showmodule ffe3_
-* set port 0c as platform number, with min value = -12000W and max value = 12000W (depending by your solar and contractual power)  _setport c p=number,min=-12000,max=12000_
+* set port 0c as platform _number_, with min value = -12000W and max value = 12000W (depending by your solar and contractual power)  _setport c p=number,min=-12000,max=12000_ where you can set your preferred value for min and max value.
 
-## Example of an automations to update *P0c Grid Power*
 <a name="evse-automation"></a>
-### Bidirectional pulse miter, with pulse outputs connected to DomBus12 on io7 (imported energy) and io8 (exported energy)
+## Example of simple automations used to send the grid power value (in Watt) to DomBusEVSE *P0c Grid Power* entity
+
+### Case #1: existing meter read by Home Assistant every X seconds
+
+Any energy meter connected to Home Assistant can be used to send the power value (in Watt) drawn from the grid to the EVSE module.
+
+```
+- id: '1750798854962'
+  alias: power2wallbox
+  description: 'Sends Grid power value to the wallbox'
+  triggers:
+  - trigger: state
+    entity_id:
+    - sensor.powermeter_watt		# Grid import power value (negative while exporting)
+  conditions: []
+  actions:
+  - service: number.set_value 
+    target:
+      entity_id: number.dbevse_ffe3_p0c_grid_power		# Entity name of P0c EVSE module
+    data:
+      value: >
+        {{ (states('sensor.powermeter_watt') | float) }}
+  mode: single
+```
+
+### Case #2: hybrid inverter read by Home Assistant every X seconds
+
+This automation sends to DomBusEVSE *P0c Grid Power* entity the value Power_from_grid - Power_to_battery:
+
+```
+- id: '1750798854962'
+  alias: power2wallbox
+  description: 'Sends Grid power value to the wallbox'
+  triggers:
+  - trigger: state
+    entity_id:
+    - sensor.inverter_grid			# Grid import power value (negative while exporting)
+    - sensor.inverter_battery		# Battery charging power (negative while drawing power from the battery)
+  conditions: []
+  actions:
+  - service: number.set_value 
+    target:
+      entity_id: number.dbevse_ffe3_p0c_grid_power		# Entity name of P0c EVSE module
+    data:
+      value: >
+        {{ (states('sensor.inverter_grid') | float(0)) - (states('sensor.inverter_battery') | float(0)) }}
+  mode: single
+```
+
+
+### Case #3: bidirectional meter (like SDM630 or SDM230) with two pulsed output (measuring importing and exporting energy) connected to a DomBus12 module on io7 (imported energy) and io8 (exported energy)
 
 This automation sends the value ImportPower - ExportPower to the *P0c Grid Power* entity:
 ```
@@ -287,10 +336,10 @@ This automation sends the value ImportPower - ExportPower to the *P0c Grid Power
   actions:
   - service: number.set_value 
     target:
-      entity_id: number.dbevse_ffe3_on_bus_2_p0c_grid_power		# Entity name of P0c EVSE module
+      entity_id: number.dbevse_ffe3_p0c_grid_power		# Entity name of P0c EVSE module
     data:
       value: >
-        {{ (states('sensor.dombus_1201_p07_io7') | float) - (states('sensor.dombus_1201_p08_io8') | float) }}
+        {{ (states('sensor.dombus_1201_p07_io7') | float(0)) - (states('sensor.dombus_1201_p08_io8') | float(0)) }}
   mode: single
 ```
 
@@ -298,7 +347,7 @@ This automation sends the value ImportPower - ExportPower to the *P0c Grid Power
 # Credits
 Software is written by Creasol, https://www.creasol.it with the valuable help of:
 
-*
+
 
 
 # Special thanks to:

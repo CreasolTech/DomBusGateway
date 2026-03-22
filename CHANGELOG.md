@@ -22,6 +22,11 @@ For info about changes in the DomBusGateway features, please check github at htt
 ### Added
 	Smoothing algorithm for NTC temperature sensors, to get a smooth chart
 
+	BugFix: when a MQTT message is received to set the power value (grid power of DomBusEVSE), now the 16bit value is transmitted (before, a 8 bit value was transmitted, 
+			ignored by the EVSE module).
+	
+	Removed "N.A." for DomBus module name and version: now a blank string is used ""
+
 ### Changed
 
 ### Removed
