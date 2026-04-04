@@ -139,11 +139,21 @@ class DomBusDevice():
             self.options['B'] = 0
 
         if portType in DB.PORTTYPES_HA:
+            # get configuration from default configuration in dombusgateway_const.py
             self.ha = DB.PORTTYPES_HA[portType].copy()  # get platform and device_class from const file
+
+            
         if 'p' not in self.ha:
             self.ha['p'] = 'switch'  # default entity platform
         if haOptions:
             self.ha.update(haOptions)
+
+        if portType == DB.PORTTYPE_IN_AC and Modules[self.frameAddr][DB.LASTTYPE] == "DomBus33":
+            # DomBus33 and port is InACx => set this port as light, instead of binary_sensor plug
+            self.ha['p'] = "switch"
+            self.ha['icon']="mdi:lightbulb"
+            if 'device_class' in self.ha:
+                del self.ha['device_class']
 
         if 'device_class' in self.ha and self.ha['device_class'] == 'temperature':
             self.avg = Smoother()
@@ -263,7 +273,7 @@ class DomBusDevice():
                 # Extract the name corresponding to the current select option
                 self.valueHA = self.ha['options'][self.valueHA]
         elif (self.portType & (DB.PORTTYPE_OUT_DIGITAL | DB.PORTTYPE_OUT_RELAY_LP | DB.PORTTYPE_OUT_LEDSTATUS | DB.PORTTYPE_IN_AC) or self.ha['p'] == 'switch'):
-            self.valueHA = 'OFF' if self.value==0 else 'ON'
+            self.valueHA = 'off' if self.value==0 else 'on'
         elif (self.portType & (DB.PORTTYPE_IN_TWINBUTTON | DB.PORTTYPE_OUT_BLIND)):
             self.valueHA = 'stopped'
             if self.value == 1 or self.value == 10: 
@@ -300,11 +310,12 @@ class DomBusDevice():
 #                self.valueHA = 'OFF' if self.value == 0 or self.value == 2 else 'ON'
 #            else:
 #                self.valueHA = 'Off' if self.value == 0 else 'On'
-            self.valueHA = 'OFF' if self.value == 0 or self.value == 2 else 'ON'
+            self.valueHA = 'off' if self.value == 0 or self.value == 2 else 'on'
             
     def updateFromBus(self, what, value:int = None, counterValue:int = None, configOptions:str = None):
         """ Data received from bus: update device and send command to MQTT, ..."""
         global manager
+        log(DB.LOG_DEBUG,f"updateFromBus({what}, {value}, {counterValue}, {configOptions})")
         self.lastUpdate=int(time.time())  # LastUpdate = number of seconds since epoch
 
         if what & DB.UPDATE_VALUE:
@@ -353,8 +364,8 @@ class DomBusDevice():
                 if self.portType != DB.PORTTYPE_SENSOR_TEMP_HUM and self.portType != DB.PORTTYPE_OUT_LEDSTATUS:    # do not add TEMP+HUM device
                     # send data by MQTT only if it changed, or every publishInterval
                     if self.valueHA != self.lastValueHA or (self.lastUpdate - self.lastValueUpdate) >= mqtt['publishInterval']:
-                        payload = self.valueHA    # message = ON
-                        manager.mqttPublish(self.topic + '/state', payload)
+                        payload = self.valueHA    # message = ON: must be lowercase!
+                        manager.mqttPublish(self.topic + '/state', payload, retain=False)
                         # self.lastValueHA = self.valueHA MUST BE CONFIRMED BY UPDATE_ACK
                         self.lastValueUpdate = self.lastUpdate
 #                        if self.ha['p'] == 'switch':    #DEBUG
@@ -372,7 +383,7 @@ class DomBusDevice():
                             payload = DB.SENSOR_ALARM_NAME[ self.energy ]
                         else:
                             payload = int(self.energy * 1000) / 1000    # energy, with Wh resolution
-                        manager.mqttPublish(self.topic2 + '/state', payload)
+                        manager.mqttPublish(self.topic2 + '/state', payload, retain=False)
             self.lastValue = value
                         
 
@@ -416,7 +427,7 @@ class DomBusDevice():
 
                     self.setTopics(self.ha['p'], "")    # update current topic
                     payload = dict(name = f"{self.portName}", friendly_name = f"{self.portName}", unique_id = 'dombus_' + self.devIDname, command_topic = f"{self.topic}/set", \
-                            state_topic = f"{self.topic}/state", schema = "json")
+                            state_topic = f"{self.topic}/state", payload_on = "on", payload_off = "off", schema = "json")
                     
 
                     o = {}  # originator
@@ -497,6 +508,7 @@ class DomBusDevice():
     def updateToBus(self, what:int, valueStr:str = None):
         """ Data received from MQTT: update device and send command to bus"""
         global manager
+        log(DB.LOG_DEBUG, f"updateToBus({what}, {valueStr})")
         if what & DB.UPDATE_VALUE:
             error = False
             if valueStr is not None:
@@ -531,13 +543,13 @@ class DomBusDevice():
                         else:
                             value *= 10;    # 0: OFF, 10: Solar, 20: 25%, ....
 
-                    elif valueHA in ("OFF", "STOP"):
+                    elif valueHA in ("OFF", "off", "STOP"):
                         value = 0
-                    elif valueHA in ("ON"):
+                    elif valueHA in ("ON", "on"):
                         value = 1
-                    elif valueHA in ("CLOSE"):
+                    elif valueHA in ("CLOSE", "close"):
                         value = 10
-                    elif valueHA in ("OPEN"):
+                    elif valueHA in ("OPEN", "open"):
                         value = 20
                     else:
                         try:
@@ -559,7 +571,9 @@ class DomBusDevice():
                                     value = 20
                             else:
                                 value = int(value)
-                            self.value = value
+                    # update the entity value and valueHA using the values received from the controller by MQTT
+                    self.valueHA = valueHA
+                    self.value = value
                 elif type(valueHA) == int or type(valueHA) == float:
                     self.valueHA = valueHA
                     self.value = valueHA
@@ -1637,7 +1651,7 @@ class DomBusManager:
                 'help': 'Remove one or more modules from DomBusGateway and home automation system:\r\ne.g. "rmmodule ffe3" or "rmmodule ffe3 1201 5102" to remove 3 devices'  },
             'setport':  {
                 'cmd': self.cmd_setport,
-                'help': 'Configure the specified port: "showbus" and "showmodule" commands have to be invoked\r\nto select the module to be configured. Examples:\r\n"setport 01 IN_ANALOG,A=0.00042" to set port 1 as analog input, specifying the A coefficient\r\n"setport 02 IN_DIGITAL,INVERTED" to set port 2 as digital input with inverted logic\r\n(On when port 2 is pulled to GND, Off when left open)\r\n"setport c p=binary_sensor,device_class=window" to set entity platform and class' },
+                'help': 'Configure the specified port: "showbus" and "showmodule" commands have to be invoked\r\nto select the module to be configured. Examples:\r\n"setport HWADDR=1" to set a new, unique address to the device, from 1 to efff (hex format)\r\n"setport 01 IN_ANALOG,A=0.00042" to set port 1 as analog input, specifying the A coefficient\r\n"setport 02 IN_DIGITAL,INVERTED" to set port 2 as digital input with inverted logic\r\n(On when port 2 is pulled to GND, Off when left open)\r\n"setport c p=binary_sensor,device_class=window" to set entity platform and class' },
             'quit':   { 
                 'cmd': self.cmd_quit, 
                 'help': 'Exit from telnet session' },
@@ -2243,7 +2257,14 @@ class DomBusManager:
             optionsNew['A'] = 1
             optionsNew['B'] = 0
             if portType in DB.PORTTYPES_HA:
-                haNew = DB.PORTTYPES_HA[portType].copy()
+                if portType == DB.PORTTYPE_IN_AC and Modules[devID>>16][DB.LASTTYPE] == "DomBus33":
+                    # DomBus33 and port is InACx => set this port as light, instead of binary_sensor plug
+                    haNew['p'] = "switch"
+                    haNew['icon']="mdi:lightbulb"
+                    ha = {}
+                else:
+                    haNew = DB.PORTTYPES_HA[portType].copy()
+
         optionsNew.update(options)
         haNew.update(ha)    # merge existing/standard configuration with parameters set by the user
 
