@@ -1080,7 +1080,7 @@ class DomBusProtocol(asyncio.Protocol):
                 self.setID(port)    # set self.devID and self.devIDname
                 self.moduleUpdate(1) # update modules dictionary to keep trace of running modules
                 # check if device exists
-                if cmdAck == 0 and self.devID not in Devices:
+                if self.devID not in Devices:
                     # send frame to ask configuration
                     self.txQueueAskConfig(self.frameAddr)
                 else:
