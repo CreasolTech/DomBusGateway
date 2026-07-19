@@ -557,7 +557,7 @@ class DomBusDevice():
                         except ValueError:
                             log(DB.LOG_WARN, f"Invalid value from MQTT: {valueStr}, type={type(valueHA)}")
                             log(DB.LOG_DEBUG, f"ha={self.ha}")
-                            error = True
+                            return # error = True
                         else:
                             # valueHA is a float or int
                             self.valueHA = value
@@ -580,7 +580,7 @@ class DomBusDevice():
                     value = valueHA
                 else:
                     log(DB.LOG_ERR, f"Invalid value type from MQTT: value={valueHA}, type={type(valueHA)}")  
-                    error = True
+                    return # error = True
                 if ('device_class' in self.ha and self.ha['device_class'] == 'power') or self.portOpt==DB.PORTOPT_IMPORT_ENERGY or self.portOpt==DB.PORTOPT_EXPORT_ENERGY:
                     if value < 0:
                         value += 65536  # Negative power => convert to int(16)
@@ -1659,11 +1659,14 @@ class DomBusManager:
 
     async def check_buses(self):
         """Check serial ports and start connections. Restart serial connection in case of failure"""
-        while True:            
+        while True:
+            # Check that RS485 bus is active, else  
             for bus in buses:
                 if 'protocol' not in buses[bus] or buses[bus]['protocol'] is None:
                     await manager.add_bus(busID=bus, port=buses[bus]['serialPort'], baudrate=115200)
                     log(DB.LOG_INFO, f"check_buses(): start connection to serial port {buses[bus]['serialPort']}, bus {bus}")
+
+            # TODO: add and check MQTT subscribe task                    
 
             await asyncio.sleep(self.retryConnection)
 

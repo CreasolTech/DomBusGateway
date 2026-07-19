@@ -28,7 +28,8 @@ For info about changes in the DomBusGateway features, please check github at htt
 	Removed "N.A." for DomBus module name and version: now a blank string is used ""
 
 	Ask for module configuration in case that any frame is received from a new module (not in Devices.json): before, configuration was asked only for device with cmdAck==0
-		In this case, it works also with DomBus31 and DomBus37, that do not periodically send the status of relay outputs																											 
+		In this case, it works also with DomBus31 and DomBus37, that do not periodically send the status of relay outputs																											
+	BugFix: in case that MQTT passes a bad value like a timestamp, the mqtt subscribe task exit => fixed. Thanks to Diego T., founding this bug using DomBusEVSE with OpenHAB
 
 ### Changed
 
