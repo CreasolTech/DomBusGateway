@@ -33,8 +33,9 @@ debugLevel = (DB.LOG_DEBUG | DB.LOG_DUMPRX | DB.LOG_DUMPTX | DB.LOG_DUMPDCMD | D
 # Please read dombusgateway_conf.py to know how to make serial devices static, unchangeable at reboot
 
 buses = {
-    1: { 'serialPort': '/dev/ttyUSB0', },
-#    2: { 'serialPort': '/dev/ttyUSBdombus2', },
+#    1: { 'serialPort': '/dev/ttyUSBdombus1', },
+    1: { 'serialPort': 'socket://localhost:8888', },    # ser2net TCP server on ESP32
+    2: { 'serialPort': '/dev/ttyUSBdombus2', },
 }
 """
 If more than one serial port is used, it's better to identify the USB ports connected to the USB/RS485 adapters: check info below

@@ -121,7 +121,7 @@ __cd  /opt/DomBusGateway; git pull; systemctl restart dombusgateway__
 
 ## Installing DomBusGateway add-on in HAOS / HASSOS (Home Asisstant Operating System)
 
-In this case the DomBusGateway addon should be installed: click on **https://github.com/CreasolTech/homeassistant-addons** and check the **DomBusGateway** section.
+In this case the DomBusGateway app (addon) should be installed: click on **https://github.com/CreasolTech/homeassistant-addons** and check the **DomBusGateway** section.
 
 ![DomBusGateway add-on for Home Assistant Operating system (HAOS)](https://images.creasol.it/dombusgateway_addon.webp)
 
@@ -177,7 +177,7 @@ Connect to the host running DomBusGateway by using the SSH protocol: **ssh pi@19
 
 * **debugLevel**: verbosity of debug information
 
-* **buses**: list of DomBus buses serial interface name (normally /dev/ttyUSB0 in case that only 1 bus is used)
+* **buses**: list of DomBus buses serial interface name (normally /dev/ttyUSB0 in case that only 1 bus is used: it's also possible to specify a tcp socket, in case of connection with a ESP32 by WiFi, for example: in this case specify *socket://ESP_IP_NUMBER:PORT* instead of */dev/ttyUSB0*)
 
 * **mqtt**: parameters for the MQTT broker connection
 

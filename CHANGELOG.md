@@ -20,6 +20,8 @@ For info about changes in the DomBusGateway features, please check github at htt
 ## [0.5 pre] 
 
 ### Added
+	Tested connection by TCP socket (ESP32: socket://192.168.x.y:8888 instead of serial device /dev/ttyUSBx). Thanks to René W.
+
 	Smoothing algorithm for NTC temperature sensors, to get a smooth chart
 
 	BugFix: when a MQTT message is received to set the power value (grid power of DomBusEVSE), now the 16bit value is transmitted (before, a 8 bit value was transmitted, 
