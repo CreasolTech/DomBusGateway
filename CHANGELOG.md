@@ -33,6 +33,8 @@ For info about changes in the DomBusGateway features, please check github at htt
 		In this case, it works also with DomBus31 and DomBus37, that do not periodically send the status of relay outputs																											
 	BugFix: in case that MQTT passes a bad value like a timestamp, the mqtt subscribe task exit => fixed. Thanks to Diego T., founding this bug using DomBusEVSE with OpenHAB
 
+	BugFix: if a device was not already recognized, it asked for the port configuration even if the received frame was already the port configuration! Thanks to Cyberhq for the detailed report!
+
 ### Changed
 
 ### Removed
